@@ -1,5 +1,7 @@
 #include "dctp.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 
 char REMOTE_IP[32];
@@ -28,12 +30,42 @@ int my_gets(char * out, int size)
 	
 	out[i] = '\0';
 	
+	__fpurge(stdin);
 	return 0;
+}
+
+void generate_salt(char * salt, int size)
+{
+	int i = 0;
+	for (; i < size; i++ )
+		salt[i] = rand()%254;
+}
+
+void generate_hash(char * password, int psize, char * salt, int ssize, char * hash, int hsize)
+{
+	int i = 0;
+	for( ; i < (hsize - 1); i++)
+	{
+		hash[i] = password[(password[i] * i + salt[i]) % (psize - 1)] + salt[(salt[i] * i + password[i])%(ssize - 1)];
+		while (hash[i] == '\0') hash[i]++;
+	}
+	hash[i] = '\0';
 }
 
 void comline(char * type)
 {
 	char temp[255];
+	
+	char password[64];
+	char salt[64];
+	char hash[128];
+	
+	printf("please enter password: ");
+	my_gets(password, sizeof(password));
+	generate_salt(salt, sizeof(salt));
+	generate_hash(password, sizeof(password), salt, sizeof(salt), hash, sizeof(hash));
+	printf("size %d hash %s", strlen(hash), hash);
+	
 	printf("please choise interface: ");
 	my_gets(IFACE, sizeof(IFACE));
 	while(1)
@@ -111,11 +143,6 @@ void location_menu(char * type)
 		printf("%s-core succesful connected\n", type);
 		comline(type);
 	}
-	
-}
-
-void client_menu()
-{
 	
 }
 

@@ -7,7 +7,7 @@ all:
 	$(CC) $(CFLAGS) -g -o dsc dsc.c -L./libs -ldyndctp -ldyndhcp -ldynqueue -ldyntimer -lpthread
 
 utils:
-	$(CC) $(CFLAGS) -o sender sender.c -L./libs -ldyndctp
+	$(CC) $(CFLAGS) -o sender sender.c -L./libs -ldyndctp -lcrypt
 
 clean: 
 	make -C src/ clean

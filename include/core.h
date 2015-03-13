@@ -59,6 +59,7 @@ typedef struct {
 
 typedef struct {
 	dserver_interface_t interfaces[MAX_INTERFACES];
+	char password[128];
 } DSERVER;
 
 //CLIENT
@@ -80,6 +81,7 @@ typedef struct {
 
 typedef struct {
 	dclient_interface_t interfaces[MAX_INTERFACES];
+	char password[128];
 } DCLIENT;
 
 
