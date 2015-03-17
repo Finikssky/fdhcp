@@ -339,15 +339,15 @@ void create_arp(char * iface, char *buffer, int ip, char *macs, char *macd, int 
 	struct arp_packet * arp = (struct arp_packet*)(buffer + sizeof(struct ethheader));
 	add_log("Creating ARP header..");
 
-	arp->hardware = htons( ARPHRD_ETHER);
-	arp->arp_protocol = htons( ETH_P_IP);
+	arp->hardware = htons( ARPHRD_ETHER );
+	arp->arp_protocol = htons( ETH_P_IP );
 	arp->arp_hard_addr_len = ETH_ALEN;
 	arp->arp_prot_addr_len = 4; /* размер ip адреса в байтах*/
-	arp->arp_operation = htons( ARPOP_REQUEST);
-	memcpy( arp->arp_mac_source, macs, ETH_ALEN);
-	memcpy( arp->arp_mac_target, macd, ETH_ALEN); 
-	arp->arp_ip_target=ip;
-	arp->arp_ip_source=get_iface_ip(iface);
+	arp->arp_operation = htons( ARPOP_REQUEST );
+	memcpy( arp->arp_mac_source, macs, ETH_ALEN );
+	memcpy( arp->arp_mac_target, macd, ETH_ALEN ); 
+	arp->arp_ip_target = ip;
+	arp->arp_ip_source = get_iface_ip(iface);
 
 	add_log("Succesful created ARP header");
 }
