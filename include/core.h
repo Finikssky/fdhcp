@@ -39,7 +39,7 @@ struct dserver_subnet_s
 	long lease_time;
 	
 	dserver_pool_t * pools;
-	dserver_dns_t  * dns-servers;
+	dserver_dns_t  * dns_servers;
 	
 	int free_addresses;
 };

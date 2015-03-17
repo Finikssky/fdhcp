@@ -487,6 +487,66 @@ int add_pool_to_subnet(dserver_subnet_t * subnet, char * range)
 	return 0;
 }
 
+int add_dns_to_subnet(dserver_subnet_t * subnet, char * address)
+{
+	dserver_dns_t * dns = subnet->dns_servers;
+	dserver_dns_t * temp = NULL;
+	u_int32_t ip = inet_addr(address);
+		
+	while (dns != NULL)
+	{
+		if (ip == dns->address) 
+		{
+			printf("dns-server is exist");
+		}
+		temp = dns;
+		dns = dns->next;
+	}
+	
+	dns = malloc(sizeof(dserver_dns_t));
+	memset(dns, 0, sizeof(*dns));
+	dns->next = NULL;	
+	
+	if (temp) 
+		temp->next = dns;
+	else 
+		subnet->dns_servers = dns;
+		
+	dns->address = ip;
+	printf("dns-server %s added\n", address);
+	
+	return 0;
+}
+
+int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
+{
+	dserver_dns_t * dns = subnet->dns_servers;
+	dserver_dns_t * temp = NULL;
+	u_int32_t ip = inet_addr(address); //TODO parsing
+		
+	while (dns != NULL)
+	{
+		if (ip == dns->address)
+		{
+			printf("del dns-server %s\n", address);
+			if (temp) 
+				temp->next = dns->next;
+			else 
+				subnet->dns_servers = dns->next;
+			
+			free(dns);
+			return 0;
+		}
+		
+		temp = dns;
+		dns = dns->next;
+	}
+		
+	printf("dns-server %s is not exist\n", address);
+	
+	return 0;
+}
+
 int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 {
 	printf("<%s>\n", __FUNCTION__);
@@ -525,13 +585,46 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 		case SR_ADD_POOL:
 			idx = get_iface_idx_by_name(ifname, server);
 			if ( idx == -1 ) return -1;
+			else
+			{
+				char address[64];
+				char mask[64];
+				char range[128]; //чиселки
+				sscanf(in->arg, "%s %s %s", address, mask, range);
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], address, mask);
+				if ( NULL == sub ) return -1;
+				if ( -1 == add_pool_to_subnet(sub, range) ) return -1;
+			}
+			break;
+		
+		case SR_ADD_DNS:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				char address[64];
+				char mask[64];
+				char ip[32]; //чиселки
+				sscanf(in->arg, "%s %s %s", address, mask, ip);
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], address, mask);
+			
+				if ( NULL == sub ) return -1;
+				if ( -1 == add_dns_to_subnet(sub, ip) ) return -1;
+			}
+			break;
+		
+		case SR_DEL_DNS:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			
 			char address[64];
 			char mask[64];
-			char range[128]; //чиселки
-			sscanf(in->arg, "%s %s %s", address, mask, range);
+			char ip[32]; //чиселки
+			sscanf(in->arg, "%s %s %s", address, mask, ip);
 			dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], address, mask);
+			
 			if ( NULL == sub ) return -1;
-			if ( -1 == add_pool_to_subnet(sub, range) ) return -1;
+			if ( -1 == del_dns_from_subnet(sub, ip) ) return -1;
 			break;
 			
 		case DCTP_PING:
