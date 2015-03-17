@@ -14,7 +14,7 @@ int get_rip_from_pack(struct dhcp_packet *dhc); //Return ip from Requested IP op
 char * get_host_from_pack(struct dhcp_packet *dhc); //Rturn host
 
 void print_dhcp_options(struct dhcp_packet *dhc);
-void printip(int ip); 
+void printip(u_int32_t ip); 
 void printmac(unsigned char *mac);
 void add_log(char *s);
 long get_lease_time();
