@@ -1,13 +1,13 @@
-headers=dhcp.h dleases.h dhconn.h dhioctl.h dhstate.h common.h
-dsources=dcrpacket.c dhcp_leases.c dhconn.c dhioctl.c dhstate.c common.c
+headers=dhcp.h dleases.h dhconn.h dhioctl.h dhstate.h 
+dsources=dcrpacket.c dhcp_leases.c dhconn.c dhioctl.c dhstate.c
 dobj=$(dsources:.c=.o)
  
 CC=gcc
-CFLAGS  = -I../../include/libdhcp -I../../include/libqueue -I../../include
+CFLAGS  = -I../../include/libdhcp -I../../include/libqueue -I../../include -I../../include/libcommon
 
 all: $(dobj) 
 	ar cr libdhcp.a $(dobj)
-	$(CC) -shared -o libdyndhcp.so $(dobj) -L../../libs -ldynqueue -ldyntimer
+	$(CC) -shared -o libdyndhcp.so $(dobj) -L../../libs -ldynqueue -ldyntimer -ldyncommon
 	cp libdyndhcp.so ../../libs/libdyndhcp.so
 	cp libdhcp.a ../../libs/libdhcp.a
 

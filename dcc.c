@@ -95,6 +95,28 @@ int get_iface_idx_by_name(char * ifname, DCLIENT * client)
 	return -1;
 }
 
+int check_password(DCLIENT * client, char * check)
+{
+	if (0 == strlen(client->password)) 
+	{	
+		generate_salt(client->salt, sizeof(client->salt));
+		generate_hash(check, strlen(check), client->salt, sizeof(client->salt), client->password, sizeof(client->password));
+		return 0;
+	} 
+	else
+	{	
+		char hash[128];
+		generate_hash(check, strlen(check), client->salt, sizeof(client->salt), hash, sizeof(hash));
+		
+		if (0 != memcmp(client->password, hash, sizeof(client->password))) return -1;
+		
+		generate_salt(client->salt, sizeof(client->salt));
+		generate_hash(check, strlen(check), client->salt, sizeof(client->salt), client->password, sizeof(client->password));
+	}
+	
+	return 0;
+}
+
 int execute_DCTP_command(DCTP_COMMAND * in, DCLIENT * client)
 {
 	char ifname[IFNAMELEN];
@@ -122,6 +144,9 @@ int execute_DCTP_command(DCTP_COMMAND * in, DCLIENT * client)
 			if ( -1 == disable_interface(&client->interfaces[idx], idx) ) return -1;
 			break;
 		case DCTP_PING:
+			break;
+		case DCTP_PASSWORD:
+			if (-1 == check_password(client, in->arg)) return -1;
 			break;
 		default:
 			printf("unknown command!\n");
@@ -249,6 +274,7 @@ int main()
 { //Добавить проверку чтобы нельзя было  открыть еще один экземпляр
 	pthread_t manipulate_tid;
 	DCLIENT client;
+	memset(&client, 0, sizeof(client));
 
 	srand(time(NULL));
 

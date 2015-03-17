@@ -1,10 +1,13 @@
 #include "dctp.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 
 char REMOTE_IP[32];
 char IFACE[32];
 int  DCTP_socket;
+DCTP_COMMAND command;
 
 #define T_S 1
 #define T_C 2
@@ -28,17 +31,69 @@ int my_gets(char * out, int size)
 	
 	out[i] = '\0';
 	
+	__fpurge(stdin);
+	return 0;
+}
+
+void subnet_view(char * subnet_prefix)
+{
+	char temp[255];
+	
+	while(1)
+	{
+		memset(&command, 0, sizeof(DCTP_COMMAND));
+		memset(temp, 0, sizeof(temp));
+				
+		printf("subnet# insert command or exit > ");
+		my_gets(temp, sizeof(temp));
+		snprintf(command.name, sizeof(command.name), "%s sr_%s", IFACE, temp);
+		
+		if (strcasestr(temp, "exit")) return 1;
+		else
+		{
+			printf("subnet# insert arg > ");
+			memset(temp, 0, sizeof(temp));
+			my_gets(temp, sizeof(temp));
+			snprintf(command.arg, sizeof(command.arg), "%s %s", subnet_prefix, temp);
+		}
+		
+		if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, DSR_DCTP_PORT ))
+		{
+			printf("sorry, but server-core don't answer, press key to continue\n");
+			getchar();
+			system("clear");
+			return -1;
+		}
+		
+	}
+	
 	return 0;
 }
 
 void comline(char * type)
 {
 	char temp[255];
+	char password[64];
+	
+	printf("please enter password: ");
+	my_gets(password, sizeof(password)); //TODO  функция взятия пароля
+	
+	memset(&command, 0, sizeof(DCTP_COMMAND));
+	snprintf(command.name, sizeof(command.name), "dctp_password");
+	snprintf(command.arg, sizeof(command.arg), password);
+	
+	if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, strstr(type, "server") ? DSR_DCTP_PORT : DCL_DCTP_PORT ))
+	{
+		printf("Incorrect password!\n");
+		getchar();
+		system("clear");
+		location_menu(type);
+	}
+	
 	printf("please choise interface: ");
 	my_gets(IFACE, sizeof(IFACE));
 	while(1)
 	{
-		DCTP_COMMAND command;
 		memset(&command, 0, sizeof(DCTP_COMMAND));
 		memset(temp, 0, sizeof(temp));
 				
@@ -55,10 +110,17 @@ void comline(char * type)
 		
 		if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, strstr(type, "server") ? DSR_DCTP_PORT : DCL_DCTP_PORT ))
 		{
-			printf("sorry, but server-core don't answer, press key to continue\n");
+			printf("sorry, but %s-core don't answer, press key to continue\n", type);
 			getchar();
 			system("clear");
 			location_menu(type);
+		}
+		
+		if (strstr(command.name, "add_subnet") && strstr(type, "server"))
+		{
+			char * subnet_prefix = strdup(command.arg);
+			subnet_view(subnet_prefix);
+			free(subnet_prefix);
 		}
 	}
 	location_menu(type);
@@ -95,8 +157,6 @@ void location_menu(char * type)
 		location_menu(type);
 	}
 		
-		
-	DCTP_COMMAND command;
 	memset(&command, 0, sizeof(command));
 	strcpy(command.name, "dctp_ping");
 	if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, strstr(type, "server") ? DSR_DCTP_PORT : DCL_DCTP_PORT))
@@ -111,11 +171,6 @@ void location_menu(char * type)
 		printf("%s-core succesful connected\n", type);
 		comline(type);
 	}
-	
-}
-
-void client_menu()
-{
 	
 }
 

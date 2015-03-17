@@ -1,5 +1,5 @@
 #include "dhcp.h"
-#include "../core.h"
+#include "core.h"
 
 //Подсчет контрольной суммы для IP и UDP заголовков
 u_int32_t checksum (buf, nbytes, sum)
@@ -32,6 +32,59 @@ u_int32_t wrapsum (sum)
 {
 	sum = ~sum & 0xFFFF;
 	return htons(sum);
+}
+
+int create_server_options(char * options, dserver_subnet_t * subnet, dserver_interface_t * interface)
+{
+	int cnt = 0;
+	//option 1, subnet netmask, must have
+	options[cnt++] = 1;
+	options[cnt++] = 4;
+	memcpy(options + cnt, &subnet->netmask, sizeof(subnet->netmask));
+	cnt += 4;
+	
+	//option 3, routers, must have 
+	options[cnt++] = 3; //TODO может быть несколько роутеров
+	options[cnt++] = 4;
+	memcpy(options + cnt, &subnet->routers, sizeof(subnet->routers));
+	cnt += 4;
+	
+	// option 5, dns-servers
+	dserver_dns_t * dns = subnet->dns_servers;
+	if (dns != NULL)
+	{
+		int dns_len = 0;
+		int dns_idx;
+		
+		options[cnt++] = 5; 
+		dns_idx = cnt;
+		cnt++;
+		
+		while (dns != NULL)
+		{
+			memcpy(options + cnt, &dns->address, sizeof(dns->address));
+			cnt += 4;
+			dns_len += 4;
+			dns = dns->next;
+		}
+		
+		options[dns_idx] = dns_len;
+	}
+
+	//Установка адреса сервера
+	options[cnt++] = 54;
+	options[cnt++] = 4;
+	u_int32_t address = get_iface_ip(interface->name); 
+	memcpy(options + cnt, &address, sizeof(address));
+	cnt += 4;
+	
+	//Установка времени аренды адреса
+	options[cnt++] = 51;
+	options[cnt++] = 4;
+	memcpy(options + cnt, &subnet->lease_time, 4);
+	cnt += 4;
+	
+	return cnt;
 }
 
 int create_offer( void * iface, char * options, u_int32_t * y_addr)
@@ -67,31 +120,50 @@ int create_offer( void * iface, char * options, u_int32_t * y_addr)
 		pool = pool->next;
 	}
 	
-	//option 1, subnet netmask, must have
-	options[cnt++] = 1;
-	options[cnt++] = 4;
-	memcpy(options + cnt, &subnet->netmask, sizeof(subnet->netmask));
-	cnt += 4;
+	cnt = create_server_options(options, subnet, interface);
+	if ( -1 == cnt ) return -1;
+	return (cnt + 7);
+}
+
+int create_ack( void * iface, char * options, u_int32_t * y_addr)
+{	
+	add_log(__FUNCTION__);
+	int cnt = 0;
+	dserver_interface_t * interface = (dserver_interface_t *)iface;
+	dserver_if_settings_t * settings = &interface->settings;
+	dserver_subnet_t * subnet = settings->subnets;
 	
-	//option 3, routers, must have 
-	options[cnt++] = 3; //TODO может быть несколько роутеров
-	options[cnt++] = 4;
-	memcpy(options + cnt, &subnet->routers, sizeof(subnet->routers));
-	cnt += 4;
+	int found = 0;
+	while(subnet != NULL)
+	{
+		dserver_pool_t * pool = subnet->pools;
+		while (pool != NULL)
+		{
+			if (ip_address_range_have_address(&pool->range, y_addr)) 
+			{
+				found = 1;
+				break;
+			}
+			pool = pool->next;
+		}
+		if (found) break;
+		subnet = subnet->next;
+	}
 	
-	//Установка адреса сервера
-	options[cnt++] = 54;
-	options[cnt++] = 4;
-	u_int32_t address = get_iface_ip(interface->name); 
-	memcpy(options + cnt, &address, sizeof(address));
-	cnt += 4;
+	if (!found)
+	{
+		printf("Not found requested address!\n");
+		return -1;
+	}
 	
-	//Установка времени аренды адреса
-	options[cnt++] = 51;
-	options[cnt++] = 4;
-	memcpy(options + cnt, &subnet->lease_time, 4);
-	cnt += 4;
-	
+	if (subnet == NULL) 
+	{	
+		printf("No subnet to lease!\n");
+		return -1;
+	}
+		
+	cnt = create_server_options(options, subnet, interface);
+	if ( -1 == cnt ) return -1;
 	return (cnt + 7);
 }
 
@@ -139,7 +211,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 
 	int cnt = 7;
 			
-    if	(dtype == DHCPOFFER)
+	if	(dtype == DHCPOFFER)
 	{
 		cnt = create_offer(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr);
 		if ( cnt == -1 ) 
@@ -147,117 +219,28 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 			add_log("create offer fail");
 			return -1;
 		}
-		/*long time;
-		char text[20];
-	//Установка предлагаемого клиенту адреса
-		cldhcp->yiaddr.s_addr = get_ip_from_pool();
-	
-	//Установка адреса сервера
-		cldhcp->options[cnt++] = 54;
-		cldhcp->options[cnt++] = 4;
-		if (!get_my_ip(cldhcp->options + cnt)) 
-			memcpy(cldhcp->options + cnt, &cldhcp->yiaddr.s_addr, sizeof(cldhcp->yiaddr.s_addr));
-		cnt += 4;
-	
-	//Установка времени аренды адреса
-		cldhcp->options[cnt++] = 51;
-			cldhcp->options[cnt++]=4;
-		time=htonl(get_lease_time());
-			memcpy(cldhcp->options+cnt,&time,4);
-		cnt+=4;
-	
-	//Установка маски подсети
-	cldhcp->options[cnt++]=1;
-        cldhcp->options[cnt++]=4;
-        time=inet_addr("255.255.255.0");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-        
-	//Установка адреса маршрутизатора
-        cldhcp->options[cnt++]=3;
-        cldhcp->options[cnt++]=4;
-        time=inet_addr("192.168.2.1");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-
-	//Установка имени домена
-        cldhcp->options[cnt++]=15;
-        cldhcp->options[cnt++]=9;
-        strcpy(text,"eltex.loc");
-        memcpy(cldhcp->options+cnt,text,9);
-        cnt+=9;
-        
-	//Установка адреса(ов) DNS
-        cldhcp->options[cnt++]=6;
-        cldhcp->options[cnt++]=8;
-        time=inet_addr("172.16.0.1");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-        time=inet_addr("172.16.0.3");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-*/
-    }
+	}
    
-    if (dtype==DHCPACK){
-	long time;
-	char text[20];	
-	//Установка возвращаемого адреса
-	cldhcp->yiaddr.s_addr=get_rip_from_pack(cldhcp);
-	
+    if (dtype == DHCPACK)
+	{
+		//Установка возвращаемого адреса
+		cldhcp->yiaddr.s_addr = get_rip_from_pack(cldhcp);
+		
+		cnt = create_ack(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr);
+		if ( cnt == -1 ) 
+		{	
+			add_log("create ack fail");
+			return -1;
+		}
+	}	
+	//TODO переделать NAK
+    if (dtype == DHCPNAK)
+	{
 	//Установка адреса сервера
-	cldhcp->options[cnt++]=54;
-        cldhcp->options[cnt++]=4;
-        if (!get_my_ip(cldhcp->options+cnt))
-                memcpy(cldhcp->options+cnt,&cldhcp->yiaddr.s_addr,sizeof(cldhcp->yiaddr.s_addr));
-        cnt+=4;
-
-	//Установка времени аренды адреса
-        cldhcp->options[cnt++]=51;
-        cldhcp->options[cnt++]=4;
-        time=htonl(get_lease_time());
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-	
-	//Установка маски подсети
-	cldhcp->options[cnt++]=1;
-        cldhcp->options[cnt++]=4;
-        time=inet_addr("255.255.255.0");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-        
-	//Установка адреса маршрутизатора
-        cldhcp->options[cnt++]=3;
-        cldhcp->options[cnt++]=4;
-        time=inet_addr("192.168.2.1");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-
-	//Установка имени домена
-        cldhcp->options[cnt++]=15;
-        cldhcp->options[cnt++]=9;
-        strcpy(text,"eltex.loc");
-        memcpy(cldhcp->options+cnt,text,9);
-        cnt+=9;
-        
-	//Установка адресов DNS
-        cldhcp->options[cnt++]=6;
-        cldhcp->options[cnt++]=8;
-        time=inet_addr("172.16.0.1");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-        time=inet_addr("172.16.0.3");
-        memcpy(cldhcp->options+cnt,&time,4);
-        cnt+=4;
-
-    }	
-	
-    if (dtype==DHCPNAK){
-	//Установка адреса сервера
-	cldhcp->options[cnt++]=54;
-        cldhcp->options[cnt++]=4;
-        get_my_ip(cldhcp->options+cnt);
-        cnt+=4;
+		cldhcp->options[cnt++]=54;
+		cldhcp->options[cnt++]=4;
+		get_my_ip(cldhcp->options+cnt);
+		cnt+=4;
     }	
 
     if (dtype==DHCPREQUEST){

@@ -1,7 +1,7 @@
 #include "dhioctl.h"
 
 //Печатаем  IP
-void printip(int ip)
+void printip(u_int32_t ip)
 {
 	printf("IP: %d.%d.%d.%d\n",
 	 ip & 0xff,
@@ -105,7 +105,7 @@ add_log("Get HOST OPTION from DHCP packet");
 	iter=dhc->options+4;
         while(*iter != 255){
                 if(*iter == 12){
-			 ret=malloc(*(iter+1));
+			 ret=malloc(*(iter+1)); //TODO СЖЕЧЬ!
 			 printf("hi\n");
 			 memcpy(&ret,iter+2,*(iter+1));
 			 return ret;
@@ -207,46 +207,75 @@ int set_my_mac(char * iface, unsigned char * mac)
 int set_config(char * buffer, char * iface)
 {
 
-struct ifreq ifr;
-struct sockaddr_in sai;
-int sockfd;                     
-int selector;
-unsigned char mask;
-char *p;
-int hres=-1;
+	struct ifreq ifr;
+	struct sockaddr_in sai;
+	int sockfd;                     
+	int selector;
+	unsigned char mask;
+	char *p;
+	int hres = -1;
 
-struct dhcp_packet *dhc=(struct dhcp_packet*) (buffer + FULLHEAD_LEN);
+	struct dhcp_packet *dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
 
-add_log("Set interface configuration..");
+	add_log("Set interface configuration..");
  
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
-        strncpy(ifr.ifr_name, iface, IFNAMSIZ);
+	strncpy(ifr.ifr_name, iface, IFNAMSIZ);
 
-        memset(&sai, 0, sizeof(struct sockaddr));
-        sai.sin_family = AF_INET;
-        sai.sin_port = 0;
-        sai.sin_addr =dhc->yiaddr;
+	memset(&sai, 0, sizeof(struct sockaddr));
+	sai.sin_family = AF_INET;
+	sai.sin_port = 0;
+	sai.sin_addr = dhc->yiaddr;
 
-        p = (char *) &sai;
-        memcpy( &ifr.ifr_addr, p, sizeof(struct sockaddr));
+	p = (char *) &sai;
+	memcpy( &ifr.ifr_addr, p, sizeof(struct sockaddr));
 	
 	//Устанавливаем адрес пока не установится
-        while(hres-- <= -1){
-                hres=ioctl(sockfd, SIOCSIFADDR, &ifr);
-		if(hres==-1) perror("ioctl set ip");
-                }
+	while(hres-- <= -1)
+	{
+		hres = ioctl(sockfd, SIOCSIFADDR, &ifr);
+		if (hres == -1) perror("ioctl set ip");
+	}
 
-        ioctl(sockfd, SIOCGIFFLAGS, &ifr);
-        ifr.ifr_flags |= IFF_UP | IFF_RUNNING | IFF_BROADCAST;
+	ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+	ifr.ifr_flags |= IFF_UP | IFF_RUNNING | IFF_BROADCAST;
 
- 	hres=ioctl(sockfd, SIOCSIFFLAGS, &ifr);
-	if(hres==-1)  perror("ioctl set flags");
+ 	hres = ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+	if (hres == -1)  perror("ioctl set flags");
 
-        close(sockfd);
+	close(sockfd);
+	
+	//Устанавливаем DNS
 
-add_log("Successful set interface configuration");
-return 0;
+	
+	int cnt;
+	for (cnt = 4; dhc->options[cnt] != 255; cnt++)
+	{
+		if (dhc->options[cnt] == 5 && (dhc->options[cnt+1] % 4) == 0)
+		{
+			FILE *fd = fopen("/etc/resolv.conf", "a+");
+			if (fd == NULL) 
+			{
+				perror("cant open dns file");
+				return -1;
+			}
+			int dns_cnt;
+			int dns_max = dhc->options[cnt + 1] / 4;
+			for ( dns_cnt = 0; dns_cnt < dns_max; dns_cnt++)
+			{
+				u_int32_t ip;
+				memcpy(&ip, &dhc->options[cnt + 2 + 4 * dns_cnt], sizeof(ip));
+				fprintf(fd, "nameserver %d.%d.%d.%d\n", ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff);
+			}
+			fclose(fd);
+			break;
+		}
+	}
+	
+	
+	add_log("Successful set interface configuration");
+	return 0;
 }
 
 
