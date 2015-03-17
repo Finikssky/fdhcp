@@ -79,6 +79,28 @@ int create_offer( void * iface, char * options, u_int32_t * y_addr)
 	memcpy(options + cnt, &subnet->routers, sizeof(subnet->routers));
 	cnt += 4;
 	
+	// option 5, dns-servers
+	dserver_dns_t * dns = subnet->dns_servers;
+	if (dns != NULL)
+	{
+		int dns_len = 0;
+		int dns_idx;
+		
+		options[cnt++] = 5; 
+		dns_idx = cnt;
+		cnt++;
+		
+		while (dns != NULL)
+		{
+			memcpy(options + cnt, &dns->address, sizeof(dns->address));
+			cnt += 4;
+			dns_len += 4;
+			dns = dns->next;
+		}
+		
+		options[dns_idx] = dns_len;
+	}
+
 	//Установка адреса сервера
 	options[cnt++] = 54;
 	options[cnt++] = 4;
