@@ -16,6 +16,14 @@ struct dserver_pool_s
 
 typedef struct dserver_pool_s dserver_pool_t;
 
+struct dserver_dns_s
+{
+	struct dserver_dns_s * next;
+	u_int32_t address;
+};
+
+typedef struct dserver_dns_s dserver_dns_t;
+
 typedef struct {
 	int default_lease_time;
 } dserver_settings_global_t;
@@ -31,6 +39,7 @@ struct dserver_subnet_s
 	long lease_time;
 	
 	dserver_pool_t * pools;
+	dserver_dns_t  * dns-servers;
 	
 	int free_addresses;
 };
@@ -76,7 +85,7 @@ typedef struct {
 	int                   enable;
 	int                   listen_sock; //нужно ли их 2
 	int                   send_sock;
-	pthread_t 	      loop_tid;
+	pthread_t 	          loop_tid;
 	dclient_if_settings_t settings;
 } dclient_interface_t;
 

@@ -28,6 +28,8 @@ typedef enum {
 	SR_DEL_SUBNET,
 	SR_ADD_POOL,
 	SR_DEL_POOL,
+	SR_ADD_DNS,
+	SR_DEL_DNS,
 	DCTP_CL_SYNC,
 	DCTP_SR_SYNC,
 	DCTP_PING,
@@ -52,6 +54,8 @@ DCTP_command_t DCTP_cmd_list[] = {
 	{ "sr_del_subnet",        SR_DEL_SUBNET }, 
 	{ "sr_add_pool",          SR_ADD_POOL }, 
 	{ "sr_del_pool",          SR_DEL_POOL },
+	{ "sr_add_dns",           SR_ADD_DNS }, 
+	{ "sr_del_dns",           SR_DEL_DNS },
 	
 	//--system--
 	{ "dctp_cl_sync",         DCTP_CL_SYNC },
