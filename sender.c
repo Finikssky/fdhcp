@@ -1,5 +1,7 @@
 #include "dctp.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 
 char REMOTE_IP[32];
@@ -28,17 +30,39 @@ int my_gets(char * out, int size)
 	
 	out[i] = '\0';
 	
+	__fpurge(stdin);
 	return 0;
 }
 
 void comline(char * type)
 {
 	char temp[255];
+	
+	char password[64];
+	char salt[64];
+	char hash[128];
+	
+	DCTP_COMMAND command;
+	
+	printf("please enter password: ");
+	my_gets(password, sizeof(password)); //TODO  функция взятия пароля
+	
+	memset(&command, 0, sizeof(DCTP_COMMAND));
+	snprintf(command.name, sizeof(command.name), "dctp_password");
+	snprintf(command.arg, sizeof(command.arg), password);
+	
+	if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, strstr(type, "server") ? DSR_DCTP_PORT : DCL_DCTP_PORT ))
+	{
+		printf("Incorrect password!\n");
+		getchar();
+		system("clear");
+		location_menu(type);
+	}
+	
 	printf("please choise interface: ");
 	my_gets(IFACE, sizeof(IFACE));
 	while(1)
 	{
-		DCTP_COMMAND command;
 		memset(&command, 0, sizeof(DCTP_COMMAND));
 		memset(temp, 0, sizeof(temp));
 				
@@ -55,7 +79,7 @@ void comline(char * type)
 		
 		if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, strstr(type, "server") ? DSR_DCTP_PORT : DCL_DCTP_PORT ))
 		{
-			printf("sorry, but server-core don't answer, press key to continue\n");
+			printf("sorry, but %s-core don't answer, press key to continue\n", type);
 			getchar();
 			system("clear");
 			location_menu(type);
@@ -111,11 +135,6 @@ void location_menu(char * type)
 		printf("%s-core succesful connected\n", type);
 		comline(type);
 	}
-	
-}
-
-void client_menu()
-{
 	
 }
 
