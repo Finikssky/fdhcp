@@ -320,6 +320,28 @@ void * sm(void * arg)
 	return NULL;
 }
 
+int check_password(DSERVER * server, char * check)
+{
+	if (0 == strlen(server->password)) 
+	{	
+		generate_salt(server->salt, sizeof(server->salt));
+		generate_hash(check, strlen(check), server->salt, sizeof(server->salt), server->password, sizeof(server->password));
+		return 0;
+	} 
+	else
+	{	
+		char hash[128];
+		generate_hash(check, strlen(check), server->salt, sizeof(server->salt), hash, sizeof(hash));
+		
+		if (0 != memcmp(server->password, hash, sizeof(server->password))) return -1;
+		
+		generate_salt(server->salt, sizeof(server->salt));
+		generate_hash(check, strlen(check), server->salt, sizeof(server->salt), server->password, sizeof(server->password));
+	}
+	
+	return 0;
+}
+
 int get_iface_idx_by_name(char * ifname, DSERVER * server)
 {
 	int i;
@@ -515,6 +537,10 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 		case DCTP_PING:
 			return 0;
 			
+		case DCTP_PASSWORD:
+			if (-1 == check_password(server, in->arg)) return -1;
+			break;
+			
 		default:
 			printf("Unknown command!\n");
 			return -1;
@@ -548,6 +574,7 @@ int main()
 {//Добавить проверку чтобы нельзя было  открыть еще один экземпляр
 	pthread_t manipulate_tid;
 	DSERVER server;
+	memset(&server, 0, sizeof(server));
 
 	srand(time(NULL));
 	init_ptable(PTABLE_COUNT);

@@ -45,14 +45,11 @@ void comline(char * type)
 	DCTP_COMMAND command;
 	
 	printf("please enter password: ");
-	my_gets(password, sizeof(password));
-	generate_salt(salt, sizeof(salt));
-	generate_hash(password, sizeof(password), salt, sizeof(salt), hash, sizeof(hash));
-	printf("size %d hash %s", strlen(hash), hash);
+	my_gets(password, sizeof(password)); //TODO  функция взятия пароля
 	
 	memset(&command, 0, sizeof(DCTP_COMMAND));
 	snprintf(command.name, sizeof(command.name), "dctp_password");
-	snprintf(command.arg, sizeof(command.arg), hash);
+	snprintf(command.arg, sizeof(command.arg), password);
 	
 	if (-1 == send_DCTP_COMMAND(DCTP_socket, command, REMOTE_IP, strstr(type, "server") ? DSR_DCTP_PORT : DCL_DCTP_PORT ))
 	{
