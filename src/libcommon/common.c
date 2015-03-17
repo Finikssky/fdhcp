@@ -4,6 +4,24 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
+void generate_salt(char * salt, int size)
+{
+	int i = 0;
+	for (; i < size; i++ )
+		salt[i] = rand()%254;
+}
+
+void generate_hash(char * password, int psize, char * salt, int ssize, char * hash, int hsize)
+{
+	int i = 0;
+	for( ; i < (hsize - 1); i++)
+	{
+		hash[i] = password[(password[i] * i + salt[i]) % (psize - 1)] + salt[(salt[i] * i + password[i])%(ssize - 1)];
+		while (hash[i] == '\0') hash[i]++;
+	}
+	hash[i] = '\0';
+}
+
 int ip_address_range_parse(const char * range_str, ip_address_range_t * range)
 {
 	if (NULL == range_str) return -1;
