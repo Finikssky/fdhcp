@@ -232,10 +232,16 @@ int set_config(char * buffer, char * iface)
 	memcpy( &ifr.ifr_addr, p, sizeof(struct sockaddr));
 	
 	//Устанавливаем адрес пока не установится
-	while(hres-- <= -1)
+	int failcnt = 0;
+	while(hres-- <= -1 )
 	{
 		hres = ioctl(sockfd, SIOCSIFADDR, &ifr);
 		if (hres == -1) perror("ioctl set ip");
+		if (failcnt++ > 5) 
+		{
+			close(sockfd);
+			return -1;
+		}
 	}
 
 	ioctl(sockfd, SIOCGIFFLAGS, &ifr);
@@ -247,8 +253,6 @@ int set_config(char * buffer, char * iface)
 	close(sockfd);
 	
 	//Устанавливаем DNS
-
-	
 	int cnt;
 	for (cnt = 4; dhc->options[cnt] != 255; cnt++)
 	{

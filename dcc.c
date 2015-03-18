@@ -46,11 +46,27 @@ int disable_interface(dclient_interface_t * interface, int idx)
 	return 0;
 }
 
-int arp_proof(char *iface, char* buffer)
+int arp_proof(char * iface, char * buffer)
 {
-	sendARP(iface,buffer);  
-	if (recvARP(iface)) return 1;
+	int try_cnt = 3;
+	struct dhcp_packet * dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
+	int sock = init_packet_sock(iface, ETH_P_ARP);
 	
+	while (try_cnt-- != 0)
+	{
+		if (-1 == sendARP(sock, iface, dhc->yiaddr.s_addr))
+		{
+			close(sock);
+			return -1;
+		}
+		if (recvARP(sock, iface, dhc->yiaddr.s_addr)) 
+		{ 
+			close(sock);
+			return 1;
+		}
+	}
+	
+	close(sock);
 	return 0;
 }
 
@@ -207,7 +223,7 @@ request:
 		printDHCP(buf);	
 	
 		//Посылаем проверочный ARP-запрос, в случае неудачи отсылаем DHCPDECLINE
-		if (arp_proof(interface->name, buf) == 0) break; 
+		if (arp_proof(interface->name, buf) == 0) break;
 		else
 		{
 			set_my_mac(interface->name, macs);

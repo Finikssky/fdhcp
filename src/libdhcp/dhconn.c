@@ -4,7 +4,6 @@
 int init_packet_sock(char *ethName, u_int16_t protocol)
 {
 	int sock; 
-
 	//Открываем сырой пакетный сокет канального уровня
 	sock = socket( PF_PACKET, SOCK_RAW, htons(protocol) );
 	if (sock < 0)
@@ -34,37 +33,31 @@ int init_packet_sock(char *ethName, u_int16_t protocol)
 }
 
 //Функция посылки ARP-пакета
-int sendARP(char * iface, char * buffer)
+int sendARP(int sock, char * iface, u_int32_t ip)
 {
 	char buf[120];
 	char macs[6];
 	char macd[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};	
-	struct dhcp_packet *dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
-	int sock;
 
 	set_my_mac(iface, macs);
 	
 	create_ethheader(buf, macs, macd, ETH_P_ARP);
 	memset(macd, 0, ETH_ALEN);
-	create_arp(iface, buf, dhc->yiaddr.s_addr, macs, macd, ARPOP_REQUEST);
+	create_arp(iface, buf, ip, macs, macd, ARPOP_REQUEST);
 	
-	sock = init_packet_sock(iface, ETH_P_ARP);
-	int size = sizeof(struct ethheader) + sizeof(struct arp_packet);
+	int size = sizeof(struct ethheader) + sizeof(struct arp_packet) + 18;
 	if ( write(sock, buf, size) == -1 )  
 	{
-		perror("Error: send ");
-		close(sock);
+		perror("send ARP Request");
 		return -1;;
 	}
 
-	close(sock);
 	return 0;
 }
 
 //Функция ожидания ARP-пакета
-int recvARP(char * iface)
+int recvARP(int sock, char * iface, u_int32_t ip)
 {
-	int sock;
 	int bytes;
 	char buf[120];
 	struct ethheader * eth;
@@ -76,39 +69,43 @@ int recvARP(char * iface)
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
 	
-	sock = init_packet_sock(iface, ETH_P_ARP);
-	
 	while(1)
 	{
 		gettimeofday(&now, NULL);
-		if ((now.tv_sec - st.tv_sec) > 8) 
+		if ((now.tv_sec - st.tv_sec) > 4) 
 		{
-			printf("We have unique ip!\n");
 			break;
 		}
 		
-		bytes = recv_timeout(sock, buf, 8);
+		bytes = recv_timeout(sock, buf, 2);
 		if (bytes == -1) 
 		{ 
-			printf("We have unique ip!\n"); 
 			break;
 		}
 		if (bytes > 120) continue;
 		
-		eth = (struct ethheader*) buf;
-		arp = (struct arp_packet*) (buf + sizeof(struct ethheader));
+		printf("<%s> recv %d\n", __FUNCTION__, bytes);
+		
+		eth = (struct ethheader *) buf;
+		arp = (struct arp_packet *) (buf + sizeof(struct ethheader));
+		
+		printip(ip);
+		printip(arp->arp_ip_source);
+		printmac(iface_mac);
+		printmac(eth->dmac);
+		
 		if (eth->type == htons(ETH_P_ARP) && 
 		    0 == memcmp(eth->dmac, iface_mac, sizeof(iface_mac)) && 
-			arp->arp_operation == htons( ARPOP_REPLY )) 
+			arp->arp_operation == htons( ARPOP_REPLY ) &&
+			ip == arp->arp_ip_source
+			) 
 		{ 
 			printf("This is binded ip!\n"); 
-			close(sock);
 			return 1;
 		}
 		
 	}
 
-	close(sock);
 	return 0;
 }
 
@@ -149,7 +146,7 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 		
 		memset(buffer, 0, sizeof(buffer));
 		bytes = recv_timeout(sock, buffer, 5);
-		printf("<%s> recv_timeout returns %d\n", __FUNCTION__, bytes);
+		//printf("<%s> recv_timeout returns %d\n", __FUNCTION__, bytes);
 		
 		if (bytes == -1) 
 		{ 
@@ -158,7 +155,7 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 		}
 
 		if (bytes < DHCP_FIXED_NON_UDP) continue;
-		printf("<%s> recv %d bytes\n", __FUNCTION__, bytes);
+		//printf("<%s> recv %d bytes\n", __FUNCTION__, bytes);
 		dhc=(struct dhcp_packet*) (buffer + FULLHEAD_LEN);
 
 		int sip;
