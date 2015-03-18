@@ -94,7 +94,7 @@ void comline(char * type)
 	my_gets(IFACE, sizeof(IFACE));
 	while(1)
 	{
-		memset(&command, 0, sizeof(DCTP_COMMAND));
+		memset(&command, 0, sizeof(command));
 		memset(temp, 0, sizeof(temp));
 				
 		printf("insert command or exit > ");
