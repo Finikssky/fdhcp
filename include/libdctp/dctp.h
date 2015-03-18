@@ -6,7 +6,7 @@
 #define DCTP_DEBUG 0
 
 #define DCTP_COMMAND_MAX_LEN 128
-#define DCTP_ARG_MAX_LEN 64
+#define DCTP_ARG_MAX_LEN 128
 #define DCTP_REPLY_TIMEOUT 5
 
 #define DCTP_MSG_COMM 1

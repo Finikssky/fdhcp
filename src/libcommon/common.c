@@ -26,9 +26,6 @@ void generate_hash(char * password, int psize, char * salt, int ssize, char * ha
 		while (hash[i] == '\0') hash[i]++;
 	}
 	hash[i] = '\0';
-	printf("pass: %s %d\n", password, psize);
-	printf("salt: %s %d\n", salt, ssize);
-	printf("hash: %s %d\n", hash, hsize);
 }
 
 int ip_address_range_parse(const char * range_str, ip_address_range_t * range)
