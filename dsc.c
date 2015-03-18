@@ -384,20 +384,47 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 	return -1;
 }
 
-int add_subnet_to_interface(dserver_interface_t * interface, char *args)
+int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 {
 	dserver_if_settings_t * settings = &interface->settings;
 	dserver_subnet_t * subnet = settings->subnets;
 	dserver_subnet_t * temp = NULL;
 	
-	char address[64];
-	char mask[64];
-	sscanf(args, "%s %s", address, mask);
-	//todo проверка на корректность адресов
+	char * address;
+	char * mask;
+	
+	if (strlen(args) < (2 * 7))
+	{
+		printf("low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
+		return -1;
+	}
+	
+	address = args;
+	mask = strchr(args, ' ');
+	if (mask == NULL)
+	{
+		printf("low args to add subnet, please add mask\n");
+		return -1;
+	}
+	
+	*mask = '\0';
+	mask++;
+	
+	struct sockaddr_in a_sa, m_sa;
+	if (!inet_pton(AF_INET, address, &(a_sa.sin_addr))) 
+	{
+		printf("can't parse address: %s\n", address);
+		return -1;
+	}
+	if (!inet_pton(AF_INET, mask, &(m_sa.sin_addr)))
+		{
+		printf("can't parse mask: %s\n", mask);
+		return -1;
+	}
 	
 	while (subnet != NULL)
 	{
-		if (subnet->address == inet_addr(address) && subnet->netmask == inet_addr(mask))
+		if (subnet->address == a_sa.sin_addr.s_addr && subnet->netmask == m_sa.sin_addr.s_addr)
 		{
 			printf("Subnet %s/%s exist!\n", address, mask);
 			return -1;
@@ -413,8 +440,8 @@ int add_subnet_to_interface(dserver_interface_t * interface, char *args)
 	if (temp) temp->next = subnet;
 	else settings->subnets = subnet;
 		
-	subnet->address = inet_addr(address);
-	subnet->netmask = inet_addr(mask);
+	subnet->address = a_sa.sin_addr.s_addr;
+	subnet->netmask = m_sa.sin_addr.s_addr;
 	subnet->free_addresses = 0;
 	subnet->lease_time = 60; //пока так 
 	printf("subnet %s/%s added\n", address, mask);
