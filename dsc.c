@@ -19,6 +19,8 @@ void * s_recvDHCP(void * arg);
 void * s_replyDHCP(void * arg);
 void * sm(void * arg);
 
+dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args);
+
 int send_offer(void * buffer, void * arg)
 {
 	struct dhcp_packet * dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN );
@@ -354,33 +356,38 @@ int get_iface_idx_by_name(char * ifname, DSERVER * server)
 
 int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 {
-	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
-	dserver_subnet_t * temp = NULL;
+	dserver_subnet_t * subnet = search_subnet(interface, args);
 	
-	char address[64];
-	char mask[64];
-	sscanf(args, "%s %s", address, mask);
-	
-	while (subnet != NULL)
+	if (subnet == NULL) return -1;
+	else 
 	{
-		if (subnet->address == inet_addr(address) && subnet->netmask == inet_addr(mask))
+		printf("delete subnet\n");
+		dserver_subnet_t * prev = subnet->prev;
+		dserver_subnet_t * next = subnet->next;
+
+		//printf("subn: %p subs:%p prev: %p next: %p\n", subnet, interface->settings.subnets, prev, next);
+
+		if (subnet == interface->settings.subnets)
 		{
-			printf("del subnet %s/%s\n", address, mask);
-			if (temp) 
-				temp->next = subnet->next;
-			else 
-				settings->subnets = subnet->next;
-			
-			free(subnet);
-			return 0;
+			free(interface->settings.subnets);
+			//printip(interface->settings.subnets->address);
+			interface->settings.subnets = next;
+			if (next)
+				interface->settings.subnets->prev = NULL;
 		}
-		temp = subnet;
-		subnet = subnet->next;
-		printf("%d go next\n", temp->address);
+		else
+		{	
+			if (prev)
+				prev->next = subnet->next;
+			if (next)
+				next->prev = subnet->prev;
+			free(subnet);
+			//printip(subnet->address);
+		}
+
+		return 0;
 	}
 	
-	printf ("subnet %s/%s is not exist\n", address, mask);
 	return -1;
 }
 
@@ -427,7 +434,7 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 		if (subnet->address == a_sa.sin_addr.s_addr && subnet->netmask == m_sa.sin_addr.s_addr)
 		{
 			printf("Subnet %s/%s exist!\n", address, mask);
-			return -1;
+			return 0;
 		}
 		temp = subnet;
 		subnet = subnet->next;
@@ -436,35 +443,93 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 	
 	subnet = malloc(sizeof(dserver_subnet_t));
 	memset(subnet, 0, sizeof(*subnet));
-	subnet->next = NULL;	
-	if (temp) temp->next = subnet;
-	else settings->subnets = subnet;
-		
 	subnet->address = a_sa.sin_addr.s_addr;
 	subnet->netmask = m_sa.sin_addr.s_addr;
 	subnet->free_addresses = 0;
 	subnet->lease_time = 60; //пока так 
+
+	if (settings->subnets == NULL)
+	{
+		settings->subnets = subnet;
+		subnet->prev = NULL;
+		subnet->next = NULL;
+	}
+	else
+	{
+		temp->next = subnet;
+		subnet->next = NULL;
+		subnet->prev = temp;
+	}
+		
 	printf("subnet %s/%s added\n", address, mask);
 	
 	return 0;
 }
 
-dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * address, char * mask)
+dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args)
 {
 	dserver_if_settings_t * settings = &interface->settings;
 	dserver_subnet_t * subnet = settings->subnets;
 	
+	char * address;
+	char * mask;
+	
+	if (strlen(args) < (2 * 7))
+	{
+		printf("low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
+		return NULL;
+	}
+	
+	address = args;
+	mask = strchr(args, ' ');
+	if (mask == NULL)
+	{
+		printf("low args to add subnet, please add mask\n");
+		return NULL;
+	}
+	
+	*mask = '\0';
+	mask++;
+	
+	char * ptr = strchr(mask, ' ');
+	if (ptr) 
+	{
+		*ptr = '\0';
+		ptr++;
+	}
+	
+	struct sockaddr_in a_sa, m_sa;
+	if (!inet_pton(AF_INET, address, &(a_sa.sin_addr))) 
+	{
+		printf("can't parse address: %s\n", address);
+		return NULL;
+	}
+	if (!inet_pton(AF_INET, mask, &(m_sa.sin_addr)))
+		{
+		printf("can't parse mask: %s\n", mask);
+		return NULL;
+	}
+	
 	while (subnet != NULL)
 	{
-		if (subnet->address == inet_addr(address) && subnet->netmask == inet_addr(mask))
+		if (subnet->address == a_sa.sin_addr.s_addr && subnet->netmask == m_sa.sin_addr.s_addr)
 		{
-			printf("Subnet %s/%s exist!\n", address, mask);
+			printf("Subnet %s/%s found!\n", address, mask);
+			if (ptr)
+			{
+				int i;
+				int len = strlen(ptr);
+				for ( i = 0; i < DCTP_ARG_MAX_LEN && i < len; i++ )
+					args[i] = ptr[i];
+				args[i] = '\0';
+			}
 			return subnet;
 		}
+		printf("subnet---->>"); printip(subnet->address);
 		subnet = subnet->next;
 	}
 	
-	printf("Subnet %s/%s is not exist!\n", address, mask);
+	printf("Subnet %s/%s not found!\n", address, mask);
 	return NULL;
 }
 
@@ -473,6 +538,8 @@ int add_pool_to_subnet(dserver_subnet_t * subnet, char * range)
 	dserver_pool_t * pool = subnet->pools;
 	dserver_pool_t * temp = NULL;
 	ip_address_range_t a_range;
+	
+	if (range == NULL) return -1;
 	
 	if (-1 == ip_address_range_parse(range, &a_range))
 	{
@@ -514,10 +581,49 @@ int add_pool_to_subnet(dserver_subnet_t * subnet, char * range)
 	return 0;
 }
 
+int del_pool_from_subnet(dserver_subnet_t * subnet, char * range)
+{
+	dserver_pool_t * pool = subnet->pools;
+	dserver_pool_t * temp = NULL;
+	ip_address_range_t a_range;
+	
+	if (range == NULL) return -1;
+	
+	if (-1 == ip_address_range_parse(range, &a_range))
+	{
+		printf("wrong address-range\n");
+		return -1;
+	}
+	
+	while (pool != NULL)
+	{
+		if (ip_address_range_is_overlap(&pool->range, &a_range))
+		{
+			printf("delete pool %s\n", range);
+			if (temp) 
+				temp->next = pool->next;
+			else 
+				subnet->pools = pool->next;
+			
+			subnet->free_addresses -= htonl(a_range.end_address) - htonl(a_range.start_address); //  под рефакторинг
+			free(pool);
+			return 0;
+		}
+		temp = pool;
+		pool = pool->next;
+	}
+	
+	printf("pool %s is not exist\n", range);
+	return -1;
+}
+
 int add_dns_to_subnet(dserver_subnet_t * subnet, char * address)
 {
 	dserver_dns_t * dns = subnet->dns_servers;
 	dserver_dns_t * temp = NULL;
+	
+	if (address == NULL) return -1;
+	
 	u_int32_t ip = inet_addr(address);
 		
 	while (dns != NULL)
@@ -549,6 +655,9 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 {
 	dserver_dns_t * dns = subnet->dns_servers;
 	dserver_dns_t * temp = NULL;
+	
+	if (address == NULL) return -1;
+	
 	u_int32_t ip = inet_addr(address); //TODO parsing
 		
 	while (dns != NULL)
@@ -571,7 +680,7 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 		
 	printf("dns-server %s is not exist\n", address);
 	
-	return 0;
+	return -1;
 }
 
 int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
@@ -580,6 +689,8 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 	char ifname[IFNAMELEN];
 	DCTP_cmd_code_t code = parse_DCTP_command(in, ifname);
 	int idx = -1;
+	
+	printf("%s: %s\n", in->name, in->arg);
 	
 	switch (code)
 	{
@@ -614,13 +725,20 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			if ( idx == -1 ) return -1;
 			else
 			{
-				char address[64];
-				char mask[64];
-				char range[128]; //чиселки
-				sscanf(in->arg, "%s %s %s", address, mask, range);
-				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], address, mask);
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
 				if ( NULL == sub ) return -1;
-				if ( -1 == add_pool_to_subnet(sub, range) ) return -1;
+				if ( -1 == add_pool_to_subnet(sub, in->arg) ) return -1;
+			}
+			break;
+			
+		case SR_DEL_POOL:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if ( -1 == del_pool_from_subnet(sub, in->arg) ) return -1;
 			}
 			break;
 		
@@ -629,29 +747,21 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			if ( idx == -1 ) return -1;
 			else 
 			{
-				char address[64];
-				char mask[64];
-				char ip[32]; //чиселки
-				sscanf(in->arg, "%s %s %s", address, mask, ip);
-				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], address, mask);
-			
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
 				if ( NULL == sub ) return -1;
-				if ( -1 == add_dns_to_subnet(sub, ip) ) return -1;
+				if ( -1 == add_dns_to_subnet(sub, in->arg) ) return -1;
 			}
 			break;
 		
 		case SR_DEL_DNS:
 			idx = get_iface_idx_by_name(ifname, server);
 			if ( idx == -1 ) return -1;
-			
-			char address[64];
-			char mask[64];
-			char ip[32]; //чиселки
-			sscanf(in->arg, "%s %s %s", address, mask, ip);
-			dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], address, mask);
-			
-			if ( NULL == sub ) return -1;
-			if ( -1 == del_dns_from_subnet(sub, ip) ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if ( -1 == del_dns_from_subnet(sub, in->arg) ) return -1;
+			}
 			break;
 			
 		case DCTP_PING:
@@ -666,7 +776,6 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			return -1;
 	}
 	
-	printf("%s: %s\n", in->name, in->arg);
 	return 0;
 }
 

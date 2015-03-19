@@ -31,6 +31,7 @@ typedef struct {
 struct dserver_subnet_s
 {
 	struct dserver_subnet_s * next;
+	struct dserver_subnet_s * prev;
 	
 	u_int32_t netmask;
 	u_int32_t address;
