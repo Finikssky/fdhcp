@@ -1,4 +1,5 @@
 #include "dhconn.h"
+#include "dleases.h"
 
 //init packet socket on interface ethName
 int init_packet_sock(char *ethName, u_int16_t protocol)
@@ -129,8 +130,7 @@ int sendDHCP(int sock, char *iface, void* buffer, int size)
 int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 {
 	int bytes;
-	struct dhcp_packet *dhc;
-	int ret = 0;
+	struct dhcp_packet * dhc;
 	int falsecnt = 0;
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
@@ -156,22 +156,22 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 
 		if (bytes < DHCP_FIXED_NON_UDP) continue;
 		//printf("<%s> recv %d bytes\n", __FUNCTION__, bytes);
-		dhc=(struct dhcp_packet*) (buffer + FULLHEAD_LEN);
+		dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
 
 		int sip;
-		get_lease(NULL, &sip);
+		get_lease(iface, NULL, &sip);
 	 	 	
 		if (dhc->xid == transid && dhc->op == 2)  
 		{
 			if (type == DHCPOFFER) break;
-			if (type == DHCPACK && (sip == get_sip_from_pack(dhc) || get_sip_from_pack(dhc) == get_my_ip(NULL))) 
+			if (type == DHCPACK && (sip == get_sip_from_pack(dhc) || get_sip_from_pack(dhc) == get_iface_ip(iface))) 
 			{
-				if (dhc->options[6] == DHCPACK) { printf("ACK\n"); break;}
-				if (dhc->options[6] == DHCPNAK) { printf("NAK\n"); ret = -1; break; }
+				if (dhc->options[6] == DHCPACK) { printf("ACK\n"); break; }
+				if (dhc->options[6] == DHCPNAK) { printf("NAK\n"); return -1; }
 			}
 		}
 	}
 
-	return ret;
+	return 0;
 }
 

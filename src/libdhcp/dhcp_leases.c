@@ -11,7 +11,7 @@ void clear_lease()
 
 	add_log("Clearing lease...");
 
-        memset(&lease,0,sizeof(lease));
+	memset(&lease,0,sizeof(lease));
 
 	fd = fopen("s_dhcp.lease", "r");
 	if (fd == NULL)
@@ -118,122 +118,148 @@ int try_give_ip(ip_address_range_t * range)
 }
 
 //Проверка, можем ли мы выдать запрашиваемый адрес
-int get_proof(struct dhcp_packet *dhc){
-FILE *fd;
-u_int32_t ip;
-char *iter;
-struct s_dhcp_lease lease,ret;
-struct timeval tv;
-int exist;
+int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
+{
+	FILE * fd;
+	u_int32_t ip;
+	char * iter;
+	struct s_dhcp_lease lease, ret;
+	struct timeval tv;
+	int exist;
 
-add_log("Search requested IP in lease...");
+	add_log("Search requested IP in lease...");
 
-        memset(&lease,0,sizeof(lease));
-        iter=dhc->options+3;
+	memset(&lease, 0, sizeof(lease));
+	iter = dhc->options + 3;
 
-        ip=get_rip_from_pack(dhc);
-        if(ip==0) return -1;
+	ip = get_rip_from_pack(dhc);
+	if (ip == 0) 
+		return -1;
+	else
+		*address = ip;
 
-fd=fopen("s_dhcp.lease","r");
-if(fd==NULL)  { printf("NEW LEASE FILE\n"); add_log("NEW LEASE FILE"); return 1;}
+	fd = fopen("s_dhcp.lease", "r");
+	if (fd == NULL) 
+	{ 
+		printf("NEW LEASE FILE\n"); 
+		add_log("NEW LEASE FILE"); 
+		return 1;
+	}
 
-        exist=0;
-        while(fread(&lease,sizeof(lease),1,fd)){
-                memset(&ret,0,sizeof(ret));
-                printip(lease.ip);
-                printip(ip);
-                if(lease.ip==ip) {
-                        ret=lease;
-                        exist=1;
-                 }
-        }
+	exist = 0;
+	while (fread(&lease, sizeof(lease), 1, fd))
+	{
+		memset(&ret, 0, sizeof(ret));
+		printip(lease.ip);
+		printip(ip);
+		if(lease.ip == ip) 
+		{
+			ret = lease;
+			exist = 1;
+		}
+	}
 
-        if(!exist) {
-                fclose(fd);
-                printf("NO THIS IP IN LEASE \n");
-                add_log("NO THIS IP IN LEASE ");
-                return 1;
-        }
+	if (!exist) 
+	{
+		fclose(fd);
+		printf("NO THIS IP IN LEASE \n");
+		add_log("NO THIS IP IN LEASE ");
+		return 1;
+	}
 
-gettimeofday(&tv,NULL);
+	gettimeofday(&tv,NULL);
 
-        unsigned char rhw[ETH_ALEN];
-        memcpy(rhw,dhc->chaddr,ETH_ALEN);
-        printf("LMAC "); printmac(ret.haddr);
-        printf("INMAC "); printmac(rhw);
+	unsigned char rhw[ETH_ALEN];
+	memcpy(rhw, dhc->chaddr, ETH_ALEN);
+	printf("LMAC "); printmac(ret.haddr);
+	printf("INMAC "); printmac(rhw);
 	
 	//Запись с адресом недействительна
-	if((ret.stime+ret.ltime) < tv.tv_sec) {
-                printf("REPLAY LEASE \n");
-                fclose(fd);
-                add_log("REPLAY LEASE ");
-                return 1;
-        } //Запись действительна и имеет тот же мак что у клиента
-        else if(ret.haddr[0]==rhw[0] && ret.haddr[1]==rhw[1]
-        	&& ret.haddr[2]==rhw[2] && ret.haddr[3]==rhw[3]
-        	&& ret.haddr[4]==rhw[4] && ret.haddr[5]==rhw[5]) {
-                
+	if ((ret.stime + ret.ltime) < tv.tv_sec) 
+	{
+		printf("REPLAY LEASE \n");
+		fclose(fd);
+		add_log("REPLAY LEASE ");
+		return 1;
+	} //Запись действительна и имеет тот же мак что у клиента
+	else if (0 == memcmp(ret.haddr, rhw, ETH_ALEN)) 
+	{
 		printf("REPLAY LEASE BY MAC \n");
-                fclose(fd);
-                add_log("REPLAY LEASE BY MAC");
-                return 1;
-        } //Запись действительна и адрес выдан другому клиенту		 
-        else {
-                printf("LEASE FAIL \n");
-                fclose(fd);
-                add_log("LEASE FAIL ");
-                return 0;
-        }
-fclose(fd);
-add_log("SEARCH FAIL");
-return 0;
+		fclose(fd);
+		add_log("REPLAY LEASE BY MAC");
+		return 1;
+	} //Запись действительна и адрес выдан другому клиенту		 
+	else 
+	{
+		printf("LEASE FAIL \n");
+		fclose(fd);
+		add_log("LEASE FAIL ");
+		return 0;
+	}
+	
+	fclose(fd);
+	add_log("SEARCH FAIL");
+
+	return 0;
 }
 
 //Функция добавления записи в базу клиента
-void add_lease(u_int32_t cip, u_int32_t sip, long time)
+void add_lease(char * iface, u_int32_t cip, u_int32_t sip, long time)
 {
 	FILE *fd;
 	struct dhcp_lease lease;
 	struct timeval tv;
 	
+	char lease_file[255];
+	snprintf(lease_file, sizeof(lease_file), "%s_dhcp.lease", iface);
+	
 	gettimeofday(&tv,NULL);
 
-	fd = fopen("dhcp.lease", "w");
+	fd = fopen(lease_file, "w");
 
-	printf("ADD LEASE \nSTIME = %ld LTIME= %d ",tv.tv_sec, ntohl(time));
-	printip(sip);	
+	printf("ADD LEASE: TIME = %ld LTIME= %d\n", tv.tv_sec, ntohl(time));
+	printf("OFFERED IP: "); printip(cip); 
+	printf("SERVER IP: ");  printip(sip);	
 
 	lease.cip = cip;
 	lease.sip = sip;
 	lease.stime = tv.tv_sec;
 	lease.ltime = ntohl(time);
 
-	fwrite(&lease,sizeof(lease),1,fd);
+	fwrite(&lease, sizeof(lease), 1, fd);
 
 	fclose(fd);
 }
 
 //Функция получения записи из базы клиента
-int get_lease(unsigned char *ip, unsigned char *sip)
+int get_lease(char * iface, unsigned char * cip, unsigned char * sip)
 {
 	FILE *fd;
 	struct dhcp_lease lease;
 	struct timeval tv;
 	long interval;
+	
+	char lease_file[255];
+	snprintf(lease_file, sizeof(lease_file), "%s_dhcp.lease", iface);
 
-	fd = fopen("dhcp.lease","r");
-	if (fd == NULL) return -1;
+	fd = fopen(lease_file, "r");
+	if (fd == NULL) 
+	{
+		printf("can't open lease_file %s\n", lease_file);
+		perror("");
+		return -1;
+	}
 
 	fread(&lease, sizeof(lease), 1, fd);
 
-	if (ip != NULL) memcpy(ip, &lease.cip, sizeof(lease.cip));
+	if (cip != NULL) memcpy(cip, &lease.cip, sizeof(lease.cip));
 	if (sip != NULL) memcpy(sip, &lease.sip, sizeof(lease.sip));
 	
-	gettimeofday(&tv,NULL);
+	gettimeofday(&tv, NULL);
 	
-	interval = tv.tv_sec-lease.stime;	
-	if (interval >= lease.ltime/2 && interval < lease.ltime*7/8) return T_RENEWING; 
-	if (interval >= lease.ltime*7/8 && interval < lease.ltime) return T_REBINDING;
+	interval = tv.tv_sec - lease.stime;
+	if (interval >= (lease.ltime / 2) && interval < (lease.ltime * 7 / 8)) return T_RENEWING; 
+	if (interval >= (lease.ltime * 7 / 8) && (interval < lease.ltime)) return T_REBINDING;
 	if (interval >= lease.ltime) return T_END;
 	
 	fclose(fd);

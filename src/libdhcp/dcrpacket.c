@@ -1,5 +1,6 @@
 #include "dhcp.h"
 #include "core.h"
+#include "dleases.h"
 
 //Подсчет контрольной суммы для IP и UDP заголовков
 u_int32_t checksum (buf, nbytes, sum)
@@ -37,6 +38,33 @@ u_int32_t wrapsum (sum)
 int create_server_options(char * options, dserver_subnet_t * subnet, dserver_interface_t * interface)
 {
 	int cnt = 0;
+	
+	//Установка адреса сервера
+	options[cnt++] = 54;
+	options[cnt++] = 4;
+	u_int32_t address = get_iface_ip(interface->name); 
+	memcpy(options + cnt, &address, sizeof(address));
+	cnt += 4;
+	
+	//Установка времени аренды адреса
+	options[cnt++] = 51;
+	options[cnt++] = 4;
+	long ltime;
+	if (subnet->lease_time != 0)
+		ltime = htonl(subnet->lease_time);
+	else
+	{
+		if (interface->settings.global.default_lease_time != 0 )
+			ltime = htonl(interface->settings.global.default_lease_time);
+		else
+		{
+			ltime = htonl(60);
+			
+		}
+	}
+	memcpy(options + cnt, &ltime, sizeof(long));
+	cnt += 4;
+	
 	//option 1, subnet netmask, must have
 	options[cnt++] = 1;
 	options[cnt++] = 4;
@@ -70,24 +98,11 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 		
 		options[dns_idx] = dns_len;
 	}
-
-	//Установка адреса сервера
-	options[cnt++] = 54;
-	options[cnt++] = 4;
-	u_int32_t address = get_iface_ip(interface->name); 
-	memcpy(options + cnt, &address, sizeof(address));
-	cnt += 4;
-	
-	//Установка времени аренды адреса
-	options[cnt++] = 51;
-	options[cnt++] = 4;
-	memcpy(options + cnt, &subnet->lease_time, 4);
-	cnt += 4;
 	
 	return cnt;
 }
 
-int create_offer( void * iface, char * options, u_int32_t * y_addr)
+int create_offer(void * iface, char * options, u_int32_t * y_addr)
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
@@ -95,7 +110,7 @@ int create_offer( void * iface, char * options, u_int32_t * y_addr)
 	dserver_if_settings_t * settings = &interface->settings;
 	dserver_subnet_t * subnet = settings->subnets;
 	
-	while(subnet != NULL)
+	while (subnet != NULL)
 	{
 		if (subnet->free_addresses != 0) break;
 		subnet = subnet->next;
@@ -152,7 +167,7 @@ int create_ack( void * iface, char * options, u_int32_t * y_addr)
 	
 	if (!found)
 	{
-		printf("Not found requested address!\n");
+		printf("Not found requested address ->>"); printip(*y_addr);
 		return -1;
 	}
 	
@@ -185,13 +200,13 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 		 #endif
 		 LASTRANDOM=LASTRANDOM%1000000;
 	 }
-    cldhcp->secs  = 0;
-    cldhcp->flags = 0x0000;
+	cldhcp->secs  = 0;
+	cldhcp->flags = 0x0000;
 	
-    if (dtype != DHCPACK) cldhcp->ciaddr.s_addr = 0;	
-    cldhcp->yiaddr.s_addr = 0;
-    cldhcp->siaddr.s_addr = 0;
-    cldhcp->giaddr.s_addr = 0;	
+	if (dtype != DHCPACK) cldhcp->ciaddr.s_addr = 0;	
+	if (dtype != DHCPACK) cldhcp->yiaddr.s_addr = 0;
+	cldhcp->siaddr.s_addr = 0;
+	cldhcp->giaddr.s_addr = 0;	
 	
 	if (cldhcp->chaddr[0] == 0 &&
 		cldhcp->chaddr[1] == 0 &&
@@ -205,12 +220,13 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	cldhcp->options[3] = 99;
    
     //Установка типа сообщения (опция 53) 	
-    cldhcp->options[4] = 53; 
+	cldhcp->options[4] = 53; 
 	cldhcp->options[5] = 1;
-    cldhcp->options[6] = dtype; 
+	cldhcp->options[6] = dtype; 
 
 	int cnt = 7;
-			
+	memset(cldhcp->options + cnt, 0, (sizeof(cldhcp->options) - cnt));
+	
 	if	(dtype == DHCPOFFER)
 	{
 		cnt = create_offer(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr);
@@ -220,12 +236,10 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 			return -1;
 		}
 	}
-   
-    if (dtype == DHCPACK)
+	
+	if (dtype == DHCPACK)
 	{
-		//Установка возвращаемого адреса
-		cldhcp->yiaddr.s_addr = get_rip_from_pack(cldhcp);
-		
+		//Установка возвращаемого адреса		
 		cnt = create_ack(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr);
 		if ( cnt == -1 ) 
 		{	
@@ -233,32 +247,35 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 			return -1;
 		}
 	}	
-	//TODO переделать NAK
+	
     if (dtype == DHCPNAK)
 	{
-	//Установка адреса сервера
-		cldhcp->options[cnt++]=54;
-		cldhcp->options[cnt++]=4;
-		get_my_ip(cldhcp->options+cnt);
-		cnt+=4;
-    }	
+		dserver_interface_t * interface = (dserver_interface_t *)arg;
+		//Установка адреса сервера
+		cldhcp->options[cnt++] = 54;
+		cldhcp->options[cnt++] = 4;
+		u_int32_t address = get_iface_ip(interface->name); 
+		memcpy(cldhcp->options + cnt, &address, sizeof(address));
+		cnt += 4;
+	}	
 
-    if (dtype==DHCPREQUEST){
-	//Установка адреса сервера
-		cldhcp->options[cnt++]=54;
-		cldhcp->options[cnt++]=4;
-		if (get_lease(NULL, cldhcp->options + cnt) == -1) return -1;
-		cnt+=4;
+	if (dtype == DHCPREQUEST)
+	{
+		dclient_interface_t * interface = (dclient_interface_t *)arg;
+		//Установка адреса сервера
+		cldhcp->options[cnt++] = 54;
+		cldhcp->options[cnt++] = 4;
+		if (get_lease(interface->name, NULL, cldhcp->options + cnt) == -1) return -1;
+		cnt += 4;
 	
-	 //Установка запрашиваемого адреса
-   	 cldhcp->options[cnt++]=50;
-   	 cldhcp->options[cnt++]=4;
-	 if (get_lease(cldhcp->options+cnt,NULL)==-1) return -1;
-	 cnt+=4;
+		//Установка запрашиваемого адреса
+		cldhcp->options[cnt++] = 50;
+		cldhcp->options[cnt++] = 4;
+		if (get_lease(interface->name, cldhcp->options + cnt, NULL)==-1) return -1;
+		cnt += 4;
 	
-	if (get_lease(NULL,&cldhcp->siaddr.s_addr)==-1) return -1;
-    }
-
+		if (get_lease(interface->name, NULL, (unsigned char *)&cldhcp->siaddr.s_addr) == -1) return -1;
+	}
 
 	cldhcp->options[cnt++] = 255; //Конец опций
 	memset(cldhcp->options + cnt, 0, sizeof(cldhcp->options) - cnt); //Очистка оставшегося поля пакета

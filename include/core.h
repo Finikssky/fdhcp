@@ -25,7 +25,7 @@ struct dserver_dns_s
 typedef struct dserver_dns_s dserver_dns_t;
 
 typedef struct {
-	int default_lease_time;
+	long default_lease_time;
 } dserver_settings_global_t;
 
 struct dserver_subnet_s
