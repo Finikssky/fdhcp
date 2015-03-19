@@ -252,12 +252,30 @@ int set_config(char * buffer, char * iface)
 
 	close(sockfd);
 	
-	//Устанавливаем DNS
+	//Устанавливаем маршруты
 	int cnt;
 	for (cnt = 4; dhc->options[cnt] != 255; cnt++)
 	{
-		if (dhc->options[cnt] == 5 && (dhc->options[cnt+1] % 4) == 0)
+		if (dhc->options[cnt] == 3 && (dhc->options[cnt + 1] % 4) == 0)
 		{
+			printf("Setup routes..");
+			
+			int router_cnt;
+			int router_max = dhc->options[cnt + 1] / 4;
+			for ( router_cnt = 0; router_cnt < router_max; router_cnt++ )
+			{
+				u_int32_t ip;
+				memcpy(&ip, &dhc->options[cnt + 2 + 4 * router_cnt], sizeof(ip)); 
+			}
+		}
+	}
+	
+	//Устанавливаем DNS
+	for (cnt = 4; dhc->options[cnt] != 255; cnt++)
+	{
+		if (dhc->options[cnt] == 5 && (dhc->options[cnt + 1] % 4) == 0)
+		{
+			printf("Setup dns..");
 			FILE *fd = fopen("/etc/resolv.conf", "a+");
 			if (fd == NULL) 
 			{
@@ -266,7 +284,7 @@ int set_config(char * buffer, char * iface)
 			}
 			int dns_cnt;
 			int dns_max = dhc->options[cnt + 1] / 4;
-			for ( dns_cnt = 0; dns_cnt < dns_max; dns_cnt++)
+			for ( dns_cnt = 0; dns_cnt < dns_max; dns_cnt++ )
 			{
 				u_int32_t ip;
 				memcpy(&ip, &dhc->options[cnt + 2 + 4 * dns_cnt], sizeof(ip));

@@ -627,6 +627,7 @@ int add_dns_to_subnet(dserver_subnet_t * subnet, char * address)
 	if (address == NULL) return -1;
 	
 	u_int32_t ip = inet_addr(address);
+	if (ip == -1) return -1;
 		
 	while (dns != NULL)
 	{
@@ -659,8 +660,9 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 	dserver_dns_t * temp = NULL;
 	
 	if (address == NULL) return -1;
-	
+		
 	u_int32_t ip = inet_addr(address); //TODO parsing
+	if (ip == -1) return -1;
 		
 	while (dns != NULL)
 	{
@@ -681,6 +683,80 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 	}
 		
 	printf("dns-server %s is not exist\n", address);
+	
+	return -1;
+}
+
+int add_router_to_subnet(dserver_subnet_t * subnet, char * address)
+{
+	dserver_router_t * router = subnet->routers;
+	dserver_router_t * temp = NULL;
+	
+	if (address == NULL) return -1;
+	
+	u_int32_t ip = inet_addr(address);
+	if (ip == -1) return -1;
+	
+	if ((ip & subnet->netmask) != subnet->address)
+	{
+		printf("router is not in subnet!\n");
+		return -1;
+	}
+	
+	while (router != NULL)
+	{
+		if (ip == router->address) 
+		{
+			printf("router is exist");
+		}
+		temp = router;
+		router = router->next;
+	}
+	
+	router = malloc(sizeof(dserver_router_t));
+	memset(router, 0, sizeof(*router));
+	router->next = NULL;	
+	
+	if (temp) 
+		temp->next = router;
+	else 
+		subnet->routers = router;
+		
+	router->address = ip;
+	printf("router %s added\n", address);
+	
+	return 0;
+}
+
+int del_router_from_subnet(dserver_subnet_t * subnet, char * address)
+{
+	dserver_router_t * router = subnet->routers;
+	dserver_router_t * temp = NULL;
+	
+	if (address == NULL) return -1;
+	
+	u_int32_t ip = inet_addr(address); //TODO parsing
+	if (ip == -1) return -1;
+	
+	while (router != NULL)
+	{
+		if (ip == router->address)
+		{
+			printf("del router-server %s\n", address);
+			if (temp) 
+				temp->next = router->next;
+			else 
+				subnet->routers = router->next;
+			
+			free(router);
+			return 0;
+		}
+		
+		temp = router;
+		router = router->next;
+	}
+		
+	printf("router-server %s is not exist\n", address);
 	
 	return -1;
 }
@@ -794,6 +870,28 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
 				if ( NULL == sub ) return -1;
 				if ( -1 == del_dns_from_subnet(sub, in->arg) ) return -1;
+			}
+			break;
+			
+		case SR_ADD_ROUTER:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if ( -1 == add_router_to_subnet(sub, in->arg) ) return -1;
+			}
+			break;
+		
+		case SR_DEL_ROUTER:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if ( -1 == del_router_from_subnet(sub, in->arg) ) return -1;
 			}
 			break;
 			

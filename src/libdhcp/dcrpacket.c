@@ -72,10 +72,26 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 	cnt += 4;
 	
 	//option 3, routers, must have 
-	options[cnt++] = 3; //TODO может быть несколько роутеров
-	options[cnt++] = 4;
-	memcpy(options + cnt, &subnet->routers, sizeof(subnet->routers));
-	cnt += 4;
+	dserver_router_t * router = subnet->routers;
+	if (router != NULL)
+	{
+		int router_len = 0;
+		int router_idx;
+		
+		options[cnt++] = 3; 
+		router_idx = cnt;
+		cnt++;
+		
+		while (router != NULL)
+		{
+			memcpy(options + cnt, &router->address, sizeof(router->address));
+			cnt += 4;
+			router_len += 4;
+			router = router->next;
+		}
+		
+		options[router_idx] = router_len;
+	}
 	
 	// option 5, dns-servers
 	dserver_dns_t * dns = subnet->dns_servers;
