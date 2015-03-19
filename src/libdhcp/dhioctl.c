@@ -37,14 +37,17 @@ int get_sip_from_pack(struct dhcp_packet *dhc)
 
 //print_dhcp_options(dhc);
 
-	for(i=4; dhc->options[i]!=255 && i<DHCP_MAX_OPTION_LEN; i++)
+	for( i = 4; dhc->options[i] != 255 && i < DHCP_MAX_OPTION_LEN; i++)
 	{
-		if(dhc->options[i]==54) { ret=1;  break; }
+		if (dhc->options[i] == 54) 
+		{
+			memcpy(&ret, dhc->options + i + 2, sizeof(int));
+			add_log("Succesful get SIP");
+			return ret; 
+		}
 	}
-	
-	if (ret != 0) memcpy(&ret, dhc->options + i + 2, 4);
 
-	add_log("Succesful get SIP");
+	add_log("Error get SIP");
 	return ret;
 }
 
@@ -65,30 +68,27 @@ void print_dhcp_options(struct dhcp_packet *dhc)
 //Получение запрашиваемого адреса из DHCP пакета
 int get_rip_from_pack(struct dhcp_packet *dhc)
 {
-	int ret=0;
+	int ret = 0;
 	int i;
 	add_log("Get RIP OPTION from DHCP packet");
 
 	//print_dhcp_options(dhc);
-	for(i=4; dhc->options[i]!=255 && i<DHCP_MAX_OPTION_LEN; i++){
-		if(dhc->options[i]==50) { ret=1;  break; }
+	for (i = 4; dhc->options[i] != 255 && i < DHCP_MAX_OPTION_LEN; i++)
+	{
+		if (dhc->options[i]==50) 
+		{ 
+			ret = 1;  
+			break; 
+		}
 	}        
 
-        if(ret!=0) memcpy(&ret,dhc->options+i+2,4);
-	if(ret==0 && dhc->ciaddr.s_addr!=0) ret=dhc->ciaddr.s_addr;	
+	if (ret != 0) memcpy(&ret,dhc->options + i + 2, 4);
+	if (ret == 0 && dhc->ciaddr.s_addr != 0) ret = dhc->ciaddr.s_addr;	
 
-//printf("RETURN RIP: "); printip(ret);
+	printf("RETURN RIP: "); printip(ret);
 	add_log("Succesful get RIP OPTION from DHCP packet");
 
-return ret;
-}
-
-//Получение своего адреса для eth0
-int get_my_ip(char *ip)
-{
-	int mip = get_iface_ip("eth0");
-	if (ip != NULL) memcpy(ip, &mip,4);
-	return mip;
+	return ret;
 }
 
 long get_lease_time()

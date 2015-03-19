@@ -4,7 +4,6 @@
 #include "dhcp.h"
 
 int get_iface_ip(char * iface);
-int get_my_ip(char * ip);
 int set_config(char * buffer, char * iface);
 int set_my_mac(char * iface, unsigned char * mac);
 int recv_timeout(int sock, void *buf, int timeout);

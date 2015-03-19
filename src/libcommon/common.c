@@ -110,7 +110,7 @@ int ip_address_range_is_overlap(ip_address_range_t * left, ip_address_range_t * 
 
 int ip_address_range_have_address(ip_address_range_t * range, u_int32_t  * address)
 {
-	printf("<%s>", __FUNCTION__);
+	printf("<%s>\n", __FUNCTION__);
 	if (htonl(*address) <= htonl(range->end_address) && htonl(*address) >= htonl(range->start_address)) return 1;
 	return 0;
 }

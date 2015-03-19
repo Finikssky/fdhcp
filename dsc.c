@@ -61,36 +61,38 @@ add_log("DHCPNAK sended!");
 
 int send_answer(void * buffer, void * arg)
 {
-	struct dhcp_packet * dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
+	struct dhcp_packet * dhc = (struct dhcp_packet * ) (buffer + FULLHEAD_LEN);
 	dserver_interface_t * interface = (dserver_interface_t *) arg;
 
 	unsigned char macs[6];
 	unsigned char macb[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
-add_log("Sending DHCPACK/DHCPNAK..");
+	add_log("Sending DHCPACK/DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
 	
 	//Проверяем доступен ли адрес
-	int result = get_proof(dhc);
-	if (result == 1) 
-	{      //В случае положительного ответа отправляем АСК
+	int result = get_proof(dhc, &dhc->yiaddr.s_addr);
+	if (result > 0) 
+	{	
+		//В случае положительного ответа отправляем АСК
 		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
-		create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface);
+		if (-1 == create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface)) return -1;
 		create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
 		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL);
 	}
-	if (result == 0)  
-	{     //В случае отрицательного ответа отправляем NAK
+	else if (result == 0)  
+	{	
+		//В случае отрицательного ответа отправляем NAK
 		create_ethheader(buffer, macs, macb, ETH_P_IP);
 		create_packet(interface->name, buffer, 2, DHCPNAK, (void *) interface);
 		create_ipheader(buffer, get_iface_ip(interface->name), INADDR_BROADCAST);
 	}
-	if (result == -1) return -1;
+	else if (result == -1) return -1;
 
 	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
-add_log("DHCPACK/DHCPNAK sended!");
+	add_log("DHCPACK/DHCPNAK sended!");
 	return 0;
 }
 
@@ -392,7 +394,7 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 }
 
 int add_subnet_to_interface(dserver_interface_t * interface, char * args)
-{
+{ //todo refactoring
 	dserver_if_settings_t * settings = &interface->settings;
 	dserver_subnet_t * subnet = settings->subnets;
 	dserver_subnet_t * temp = NULL;
@@ -446,7 +448,7 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 	subnet->address = a_sa.sin_addr.s_addr;
 	subnet->netmask = m_sa.sin_addr.s_addr;
 	subnet->free_addresses = 0;
-	subnet->lease_time = 60; //пока так 
+	subnet->lease_time = 0; 
 
 	if (settings->subnets == NULL)
 	{
@@ -575,7 +577,7 @@ int add_pool_to_subnet(dserver_subnet_t * subnet, char * range)
 	else subnet->pools = pool;
 		
 	pool->range = a_range;
-	subnet->free_addresses += htonl(a_range.end_address) - htonl(a_range.start_address); //  под рефакторинг
+	subnet->free_addresses += htonl(a_range.end_address) - htonl(a_range.start_address) + 1; //  под рефакторинг
 	printf("pool %s added\n", range);
 	
 	return 0;
@@ -605,7 +607,7 @@ int del_pool_from_subnet(dserver_subnet_t * subnet, char * range)
 			else 
 				subnet->pools = pool->next;
 			
-			subnet->free_addresses -= htonl(a_range.end_address) - htonl(a_range.start_address); //  под рефакторинг
+			subnet->free_addresses -= htonl(a_range.end_address) - htonl(a_range.start_address) + 1; //  под рефакторинг
 			free(pool);
 			return 0;
 		}
@@ -683,6 +685,14 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 	return -1;
 }
 
+long get_one_num(char * args)
+{
+	if (args == NULL || strlen(args) == 0) return -1;
+	if (strchr(args, ' ')) return -1;
+	
+	return atol(args);
+}
+
 int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 {
 	printf("<%s>\n", __FUNCTION__);
@@ -706,6 +716,29 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			if ( idx == -1 ) return -1;
 			if ( server->interfaces[idx].enable == 0 ) return -1;
 			if ( -1 == disable_interface(&server->interfaces[idx], idx) ) return -1;
+			break;
+		
+		case SR_SET_LEASETIME:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				long ltime;
+				if (strstr (in->arg, "global"))
+				{
+					ltime = get_one_num(in->arg + strlen("global") + 1);
+					if (ltime == -1) return -1;
+					server->interfaces[idx].settings.global.default_lease_time = ltime;
+				}
+				else
+				{
+					dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+					if ( NULL == sub ) return -1;
+					ltime = get_one_num(in->arg);
+					if (ltime == -1) return -1;
+					sub->lease_time = ltime;
+				}
+			}
 			break;
 			
 		case SR_ADD_SUBNET:

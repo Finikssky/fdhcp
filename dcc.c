@@ -70,7 +70,7 @@ int arp_proof(char * iface, char * buffer)
 	return 0;
 }
 
-void printDHCP(char * buffer)
+void printDHCP(char * buffer, char * iface)
 {//Переделать
 	struct dhcp_packet *dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
 	int ip = htonl(dhc->yiaddr.s_addr);
@@ -82,14 +82,14 @@ void printDHCP(char * buffer)
 	
 	//Получаем адрес сервера
 	sip = get_sip_from_pack(dhc);	
-//	printf("SIP "); printip(sip);		
+	printf("SIP "); printip(sip);		
 	
 	//Получаем время аренды
-	while (*iter!=51)
+	while (*iter != 51)
 	{
-		if (*iter==255) 
+		if (*iter == 255) 
 		{ 
-			time=0; 
+			time = 0; 
 			break;
 		}
 		iter++;
@@ -98,7 +98,7 @@ void printDHCP(char * buffer)
 	if (time != 0) memcpy(&time, iter+2, sizeof(time));
 
 	//Добавляем запись в лиз клиента		
-	add_lease(dhc->yiaddr.s_addr, sip, time);
+	add_lease(iface, dhc->yiaddr.s_addr, sip, time);
 }
 
 int get_iface_idx_by_name(char * ifname, DCLIENT * client)
@@ -201,7 +201,7 @@ start:
 			goto start;
 		}
 
-		printDHCP(buf);
+		printDHCP(buf, interface->name);
 		REQ_ADDR = INADDR_BROADCAST;
 
 request:	
@@ -220,7 +220,7 @@ request:
 		}
 		
 		REQ_ADDR = INADDR_BROADCAST;
-		printDHCP(buf);	
+		printDHCP(buf, interface->name);	
 	
 		//Посылаем проверочный ARP-запрос, в случае неудачи отсылаем DHCPDECLINE
 		if (arp_proof(interface->name, buf) == 0) break;
@@ -245,8 +245,8 @@ request:
 		sleep(20);
 	
 		//Получаем состояние аренды
-		ret = get_lease((unsigned char *)NULL, (unsigned char *)&REQ_ADDR);
-	    	if (ret == T_RENEWING) 
+		ret = get_lease(interface->name, (unsigned char *)NULL, (unsigned char *)&REQ_ADDR);
+		if (ret == T_RENEWING) 
 		{ 
 			printf("RENEWING! \n");
 			goto request;

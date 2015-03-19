@@ -30,6 +30,7 @@ typedef enum {
 	SR_DEL_POOL,
 	SR_ADD_DNS,
 	SR_DEL_DNS,
+	SR_SET_LEASETIME,
 	DCTP_CL_SYNC,
 	DCTP_SR_SYNC,
 	DCTP_PING,
@@ -56,13 +57,14 @@ DCTP_command_t DCTP_cmd_list[] = {
 	{ "sr_del_pool",          SR_DEL_POOL },
 	{ "sr_add_dns",           SR_ADD_DNS }, 
 	{ "sr_del_dns",           SR_DEL_DNS },
+	{ "sr_set_leasetime",     SR_SET_LEASETIME},
 	
 	//--system--
 	{ "dctp_cl_sync",         DCTP_CL_SYNC },
 	{ "dctp_sr_sync",         DCTP_SR_SYNC },
 	{ "dctp_ping" ,           DCTP_PING },
 	{ "dctp_password" ,       DCTP_PASSWORD },
-	{ "",                   UNDEF_COMMAND},
+	{ "",                     UNDEF_COMMAND},
 };
 
 typedef enum
