@@ -109,7 +109,10 @@ int comline(char * type)
 				
 		printf("insert command or exit > ");
 		my_gets(temp, sizeof(temp));
-		snprintf(command.name, sizeof(command.name), "%s %s_%s", IFACE, strstr(type,"server") ? "sr" : "cl", temp);
+		if (strstr(temp, "save_config"))
+			snprintf(command.name, sizeof(command.name), "dctp_save_config");
+		else
+			snprintf(command.name, sizeof(command.name), "%s %s_%s", IFACE, strstr(type,"server") ? "sr" : "cl", temp);
 		
 		if (strcasestr(temp, "exit")) break;
 		else

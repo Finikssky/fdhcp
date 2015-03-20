@@ -12,6 +12,7 @@
 #include "common.h"
 
 #define PTABLE_COUNT   8
+#define S_CONFIG_FILE "dsc.conf"
 
 void * iface_loop (void * iface);
 void * manipulate (void * server);
@@ -20,6 +21,72 @@ void * s_replyDHCP(void * arg);
 void * sm(void * arg);
 
 dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args);
+
+void save_config(DSERVER * server)
+{
+	FILE * fd = fopen(S_CONFIG_FILE, "w");
+	int i;
+	
+	for (i = 0; i < MAX_INTERFACES; i++ )
+	{
+		dserver_interface_t * interface = &server->interfaces[i];
+		if (strlen(interface->name) != 0)
+		{
+			fprintf(fd, "interface:%s\n", interface->name);
+			
+			fprintf(fd, "    %s\n", interface->enable == 1 ? "enable" : "disable");
+			
+			dserver_if_settings_t * settings = &interface->settings;
+			
+			dserver_subnet_t * subnet = settings->subnets;
+			while (subnet != NULL)
+			{
+				char subnet_mask[INET_ADDRSTRLEN];
+				char subnet_addr[INET_ADDRSTRLEN];
+				inet_ntop(AF_INET, &subnet->address, subnet_addr, sizeof(subnet_addr));
+				inet_ntop(AF_INET, &subnet->netmask, subnet_mask, sizeof(subnet_mask));
+				
+				fprintf(fd, "    %s:%s:%s\n", "subnet", subnet_addr, subnet_mask);
+				fprintf(fd, "        %s:%ld\n", "lease_time", subnet->lease_time);
+				
+				dserver_pool_t * pool = subnet->pools;
+				while (pool != NULL)
+				{   
+					char start_address[INET_ADDRSTRLEN];
+					char end_address[INET_ADDRSTRLEN];
+					inet_ntop(AF_INET, &pool->range.start_address, start_address, sizeof(start_address));
+					inet_ntop(AF_INET, &pool->range.start_address, end_address, sizeof(end_address));
+					fprintf(fd, "        %s:%s-%s\n", "range", start_address, end_address);
+					pool = pool->next;
+				}
+				
+				dserver_dns_t * dns = subnet->dns_servers;
+				while (dns != NULL)
+				{
+					char dns_address[INET_ADDRSTRLEN];
+					inet_ntop(AF_INET, &dns->address, dns_address, sizeof(dns_address));
+					fprintf(fd, "        %s:%s\n", "dns-server", dns_address);
+					dns = dns->next;
+				}
+				
+				dserver_router_t * router = subnet->routers;
+				while (router != NULL)
+				{
+					char router_address[INET_ADDRSTRLEN];
+					inet_ntop(AF_INET, &router->address, router_address, sizeof(router_address));
+					fprintf(fd, "        %s:%s\n", "router", router_address);
+					router = router->next;
+				}
+				fprintf(fd, "    %s\n", "end_subnet");
+				
+				subnet = subnet->next;
+			}
+			fprintf(fd, "end_interface\n");
+		}
+	}
+		
+	fclose(fd);
+}
 
 int send_offer(void * buffer, void * arg)
 {
@@ -900,6 +967,10 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			
 		case DCTP_PASSWORD:
 			if (-1 == check_password(server, in->arg)) return -1;
+			break;
+		
+		case DCTP_SAVE_CONFIG:
+			save_config(server);
 			break;
 			
 		default:
