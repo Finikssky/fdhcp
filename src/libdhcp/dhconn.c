@@ -163,9 +163,13 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 	 	 	
 		if (dhc->xid == transid && dhc->op == 2)  
 		{
+			u_int32_t d_sip;
 			if (type == DHCPOFFER) break;
-			if (type == DHCPACK && (sip == get_sip_from_pack(dhc) || get_sip_from_pack(dhc) == get_iface_ip(iface))) 
-			{
+			if (type == DHCPACK ) 
+			{	
+				if (-1 == get_option(dhc, 54, &d_sip, sizeof(d_sip))) continue;
+				if (d_sip != sip && d_sip != get_iface_ip(iface)) continue;
+ 
 				if (dhc->options[6] == DHCPACK) { printf("ACK\n"); break; }
 				if (dhc->options[6] == DHCPNAK) { printf("NAK\n"); return -1; }
 			}

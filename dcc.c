@@ -81,7 +81,7 @@ void printDHCP(char * buffer, char * iface)
 	char * iter = (char *)dhc->options;
 	
 	//Получаем адрес сервера
-	sip = get_sip_from_pack(dhc);	
+	get_option(dhc, 54, &sip, sizeof(sip));	
 	printf("SIP "); printip(sip);		
 	
 	//Получаем время аренды
@@ -238,7 +238,7 @@ request:
 	}	
 	
 	//Применяем полученную конфигурацию на интерфейс
-	set_config(buf, interface->name);
+	apply_interface_settings(buf, interface->name);
 	
 	while(1)
 	{

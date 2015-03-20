@@ -121,7 +121,6 @@ int try_give_ip(ip_address_range_t * range)
 int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 {
 	FILE * fd;
-	u_int32_t ip;
 	char * iter;
 	struct s_dhcp_lease lease, ret;
 	struct timeval tv;
@@ -132,11 +131,8 @@ int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 	memset(&lease, 0, sizeof(lease));
 	iter = dhc->options + 3;
 
-	ip = get_rip_from_pack(dhc);
-	if (ip == 0) 
+	if ( -1 == get_option(dhc, 50, (void*)address, sizeof(u_int32_t)) )
 		return -1;
-	else
-		*address = ip;
 
 	fd = fopen("s_dhcp.lease", "r");
 	if (fd == NULL) 
@@ -151,8 +147,8 @@ int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 	{
 		memset(&ret, 0, sizeof(ret));
 		printip(lease.ip);
-		printip(ip);
-		if(lease.ip == ip) 
+		printip(*address);
+		if(lease.ip == *address) 
 		{
 			ret = lease;
 			exist = 1;

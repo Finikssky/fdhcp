@@ -93,14 +93,14 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 		options[router_idx] = router_len;
 	}
 	
-	// option 5, dns-servers
+	// option 6, dns-servers
 	dserver_dns_t * dns = subnet->dns_servers;
 	if (dns != NULL)
 	{
 		int dns_len = 0;
 		int dns_idx;
 		
-		options[cnt++] = 5; 
+		options[cnt++] = 6; 
 		dns_idx = cnt;
 		cnt++;
 		
