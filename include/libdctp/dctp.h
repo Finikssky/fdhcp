@@ -30,6 +30,8 @@ typedef enum {
 	SR_DEL_POOL,
 	SR_ADD_DNS,
 	SR_DEL_DNS,
+	SR_ADD_ROUTER,
+	SR_DEL_ROUTER,
 	SR_SET_LEASETIME,
 	DCTP_CL_SYNC,
 	DCTP_SR_SYNC,
@@ -57,6 +59,8 @@ DCTP_command_t DCTP_cmd_list[] = {
 	{ "sr_del_pool",          SR_DEL_POOL },
 	{ "sr_add_dns",           SR_ADD_DNS }, 
 	{ "sr_del_dns",           SR_DEL_DNS },
+	{ "sr_add_router",        SR_ADD_ROUTER }, 
+	{ "sr_del_router",        SR_DEL_ROUTER },
 	{ "sr_set_leasetime",     SR_SET_LEASETIME},
 	
 	//--system--

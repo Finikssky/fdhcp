@@ -24,6 +24,14 @@ struct dserver_dns_s
 
 typedef struct dserver_dns_s dserver_dns_t;
 
+struct dserver_router_s
+{
+	struct dserver_router_s * next;
+	u_int32_t address;
+};
+
+typedef struct dserver_router_s dserver_router_t;
+
 typedef struct {
 	long default_lease_time;
 } dserver_settings_global_t;
@@ -35,12 +43,13 @@ struct dserver_subnet_s
 	
 	u_int32_t netmask;
 	u_int32_t address;
-	u_int32_t routers;
+	
 	
 	long lease_time;
 	
-	dserver_pool_t * pools;
-	dserver_dns_t  * dns_servers;
+	dserver_router_t  * routers;
+	dserver_pool_t    * pools;
+	dserver_dns_t     * dns_servers;
 	
 	int free_addresses;
 };

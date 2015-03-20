@@ -159,7 +159,7 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 		dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
 
 		int sip;
-		get_lease(iface, NULL, &sip);
+		get_lease(iface, NULL, (unsigned char*)&sip);
 	 	 	
 		if (dhc->xid == transid && dhc->op == 2)  
 		{
