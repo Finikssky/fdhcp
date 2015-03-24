@@ -2,6 +2,7 @@
 #define DCOMMON_H
 
 #include <sys/types.h>
+#include <stdio.h>
 
 typedef struct
 {
@@ -16,5 +17,7 @@ int ip_address_range_have_address(ip_address_range_t * range, u_int32_t  * addre
 
 void generate_hash(char * password, int psize, char * salt, int ssize, char * hash, int hsize);
 void generate_salt(char * salt, int size);
+
+int t_gets(FILE * stream, char end_simbol, char * out, int size, int start);
 
 #endif

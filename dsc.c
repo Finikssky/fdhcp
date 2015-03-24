@@ -21,10 +21,17 @@ void * s_replyDHCP(void * arg);
 void * sm(void * arg);
 
 dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args);
+dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char * args);
+int add_pool_to_subnet(dserver_subnet_t * subnet, char * range);
+int add_dns_to_subnet(dserver_subnet_t * subnet, char * address);
+int add_router_to_subnet(dserver_subnet_t * subnet, char * address);
 
-void save_config(DSERVER * server)
+long get_one_num(char * args);
+
+int save_config(DSERVER * server, char * c_file)
 {
-	FILE * fd = fopen(S_CONFIG_FILE, "w");
+	FILE * fd = fopen(c_file, "w");
+	if (fd == NULL) return -1;
 	int i;
 	
 	for (i = 0; i < MAX_INTERFACES; i++ )
@@ -46,7 +53,7 @@ void save_config(DSERVER * server)
 				inet_ntop(AF_INET, &subnet->address, subnet_addr, sizeof(subnet_addr));
 				inet_ntop(AF_INET, &subnet->netmask, subnet_mask, sizeof(subnet_mask));
 				
-				fprintf(fd, "    %s:%s:%s\n", "subnet", subnet_addr, subnet_mask);
+				fprintf(fd, "    %s:%s %s\n", "subnet", subnet_addr, subnet_mask);
 				fprintf(fd, "        %s:%ld\n", "lease_time", subnet->lease_time);
 				
 				dserver_pool_t * pool = subnet->pools;
@@ -86,6 +93,128 @@ void save_config(DSERVER * server)
 	}
 		
 	fclose(fd);
+	return 0;
+}
+
+int load_subnet(FILE * fd, dserver_subnet_t * subnet)
+{
+	char com[128]  = "";
+	char args[128] = "";
+	while (EOF != t_gets(fd, ':', com, sizeof(com), 0))
+	{
+		if (0 == strcmp(com, "range"))
+		{
+			if (EOF == t_gets(fd, 0, args, sizeof(args), 0)) 
+				return -1;
+			if (-1 == add_pool_to_subnet(subnet, args))	
+				printf("parse config error: add range\n");
+		}
+		else if (0 == strcmp(com, "dns-server"))
+		{
+			if (EOF == t_gets(fd, 0, args, sizeof(args), 0)) 
+				return -1;
+			if (-1 == add_dns_to_subnet(subnet, args))	
+				printf("parse config error: add dns-server\n");
+		}
+		else if (0 == strcmp(com, "router"))
+		{
+			if (EOF == t_gets(fd, 0, args, sizeof(args), 0)) 
+				return -1;
+			if (-1 == add_router_to_subnet(subnet, args))	
+				printf("parse config error: add router\n");
+		}
+		else if (0 == strcmp(com, "lease_time"))
+		{
+			if (EOF == t_gets(fd, 0, args, sizeof(args), 0)) 
+				return -1;
+				
+			long ltime = get_one_num(args);
+			if (ltime == -1) 
+				printf("parse config error: set lease time\n");
+			else 
+				subnet->lease_time = ltime;
+		}
+		else if (0 == strcmp(com, "end_subnet"))
+		{
+			return 0;
+		}
+		memset(com, 0, sizeof(com));
+		memset(args, 0, sizeof(args));
+	}
+	
+	return -1;
+}
+
+int load_interface (FILE * fd, dserver_interface_t * interface)
+{
+	char com[128]  = "";
+	char args[128] = "";
+	while (EOF != t_gets(fd, ':', com, sizeof(com), 0))
+	{
+		if (0 == strcmp(com, "enable"))
+		{
+			interface->enable = 1;
+		}
+		else if (0 == strcmp(com, "disable"))
+		{
+			interface->enable = 0;
+		}
+		else if (0 == strcmp(com, "subnet"))
+		{
+			t_gets(fd, 0, args, sizeof(args), 0);
+			dserver_subnet_t * subnet = add_subnet_to_interface(interface, args);
+			if (subnet != NULL ) 
+			{
+				if (-1 == load_subnet(fd, subnet))
+				{
+					printf("parse config error: can't reach end of subnet\n");
+					return -1;
+				}
+			}
+			else 
+				printf("parse config error: subnet add\n");
+		}
+		else if (0 == strcmp(com, "end_interface"))
+		{
+			return 0;
+		}
+		memset(com, 0, sizeof(com));
+		memset(args, 0, sizeof(args));
+	}
+	
+	return -1;
+}
+
+int load_config(DSERVER * server, char * c_file)
+{
+	FILE * fd = fopen(c_file, "r");
+	if (fd == NULL) return -1;
+	int i;
+	char com[128] = "";
+		
+	for (i = 0; i < MAX_INTERFACES; i++ )
+	{
+		dserver_interface_t * interface = &server->interfaces[i];
+		
+		while (EOF != t_gets(fd, ':', com, sizeof(com), 0))
+		{
+			if (0 == strcmp(com, "interface"))
+			{
+				memset(interface, 0 ,sizeof(*interface));
+				t_gets(fd, 0, interface->name, sizeof(interface->name), 0);
+				if (-1 == load_interface(fd, interface)) 
+				{
+					printf("parse config error: can't reach end of interface");
+					return -1;
+				}
+				break;
+			}
+			memset(com, 0, sizeof(com));
+		}
+	}
+		
+	fclose(fd);
+	return 0;
 }
 
 int send_offer(void * buffer, void * arg)
@@ -278,6 +407,8 @@ int enable_interface(dserver_interface_t * interface, int idx)
 	interface->listen_sock = init_packet_sock(interface->name, ETH_P_ALL); //? ETH_P_ALL
 	interface->send_sock   = init_packet_sock(interface->name, ETH_P_IP); 
 	
+	if (interface->listen_sock == -1 || interface->send_sock == -1) return -1;
+	
 	int result;
 
 	result = pthread_create(&interface->listen, NULL, s_recvDHCP, (void *)interface); //Создание потока приема
@@ -460,7 +591,7 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 	return -1;
 }
 
-int add_subnet_to_interface(dserver_interface_t * interface, char * args)
+dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char * args)
 { //todo refactoring
 	dserver_if_settings_t * settings = &interface->settings;
 	dserver_subnet_t * subnet = settings->subnets;
@@ -472,7 +603,7 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 	if (strlen(args) < (2 * 7))
 	{
 		printf("low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
-		return -1;
+		return NULL;
 	}
 	
 	address = args;
@@ -480,7 +611,7 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 	if (mask == NULL)
 	{
 		printf("low args to add subnet, please add mask\n");
-		return -1;
+		return NULL;
 	}
 	
 	*mask = '\0';
@@ -490,12 +621,12 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 	if (!inet_pton(AF_INET, address, &(a_sa.sin_addr))) 
 	{
 		printf("can't parse address: %s\n", address);
-		return -1;
+		return NULL;
 	}
 	if (!inet_pton(AF_INET, mask, &(m_sa.sin_addr)))
 		{
 		printf("can't parse mask: %s\n", mask);
-		return -1;
+		return NULL;
 	}
 	
 	while (subnet != NULL)
@@ -503,7 +634,7 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 		if (subnet->address == a_sa.sin_addr.s_addr && subnet->netmask == m_sa.sin_addr.s_addr)
 		{
 			printf("Subnet %s/%s exist!\n", address, mask);
-			return 0;
+			return NULL;
 		}
 		temp = subnet;
 		subnet = subnet->next;
@@ -532,7 +663,7 @@ int add_subnet_to_interface(dserver_interface_t * interface, char * args)
 		
 	printf("subnet %s/%s added\n", address, mask);
 	
-	return 0;
+	return subnet;
 }
 
 dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args)
@@ -887,7 +1018,7 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 		case SR_ADD_SUBNET:
 			idx = get_iface_idx_by_name(ifname, server);
 			if ( idx == -1 ) return -1;
-			if ( -1 == add_subnet_to_interface(&server->interfaces[idx], in->arg) ) return -1;
+			if ( NULL == add_subnet_to_interface(&server->interfaces[idx], in->arg) ) return -1;
 			break;
 			
 		case SR_DEL_SUBNET:
@@ -970,7 +1101,7 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			break;
 		
 		case DCTP_SAVE_CONFIG:
-			save_config(server);
+			if (-1 == save_config(server, S_CONFIG_FILE)) return -1;
 			break;
 			
 		default:
@@ -1011,9 +1142,24 @@ int main()
 	init_ptable(PTABLE_COUNT);
 	initres(2 * sizeof(server.interfaces));
 	initsync(2 * sizeof(server.interfaces));
-
-	strcpy(server.interfaces[0].name, "eth0"); server.interfaces[0].cci = 5;
-	strcpy(server.interfaces[1].name, "eth1"); server.interfaces[1].cci = 10;
+	
+	//LOADING CONFIGURATION
+	DSERVER * temp_config = (DSERVER * )malloc(sizeof(*temp_config));
+	memset(temp_config, 0, sizeof(*temp_config));
+	if (-1 != load_config(temp_config, S_CONFIG_FILE))
+		memcpy(&server, temp_config, sizeof(server));
+	free(temp_config);
+	int i;
+	for (i = 0; i < MAX_INTERFACES; i++)
+	{	
+		dserver_interface_t * interface = &server.interfaces[i];
+		if ( strlen(interface->name) == 0 ) continue;
+		if ( interface->enable == 0 ) continue;
+		interface->cci = 5;
+		if ( -1 == enable_interface(interface, i) ) return -1;
+	}
+	
+	//END LOADING CONFIGURATION
 
 	pthread_create(&manipulate_tid, NULL, manipulate, (void *)&server);
 
