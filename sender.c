@@ -1,4 +1,5 @@
 #include "dctp.h"
+#include "../libcommon/common.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdio_ext.h>
@@ -18,31 +19,7 @@ int comline(char * type);
 
 int my_gets(char * out, int size)
 {
-	__fpurge(stdin);
-	int i = 0;
-	char last = '\0';
-	
-	for( i = 0; i < (size - 1); i++ )
-	{	
-		char c = getchar();
-		if (c == '\n') 
-		{
-			if (out[ i - 1 ] == ' ') out[ i - 1] = '\0';
-			break;
-		}
-		else 
-			if ( last != ' ' || c != ' ') 
-				out[i] = c;
-			else
-				i--;
-		
-		last = c;
-	}
-	
-	out[i] = '\0';
-	
-	__fpurge(stdin);
-	return 0;
+	return t_gets(stdin, 0, out, size, 0);
 }
 
 int subnet_view(char * subnet_prefix)
@@ -109,7 +86,10 @@ int comline(char * type)
 				
 		printf("insert command or exit > ");
 		my_gets(temp, sizeof(temp));
-		snprintf(command.name, sizeof(command.name), "%s %s_%s", IFACE, strstr(type,"server") ? "sr" : "cl", temp);
+		if (strstr(temp, "save_config"))
+			snprintf(command.name, sizeof(command.name), "dctp_save_config");
+		else
+			snprintf(command.name, sizeof(command.name), "%s %s_%s", IFACE, strstr(type,"server") ? "sr" : "cl", temp);
 		
 		if (strcasestr(temp, "exit")) break;
 		else

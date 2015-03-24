@@ -44,7 +44,6 @@ struct dserver_subnet_s
 	u_int32_t netmask;
 	u_int32_t address;
 	
-	
 	long lease_time;
 	
 	dserver_router_t  * routers;

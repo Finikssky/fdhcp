@@ -37,6 +37,7 @@ typedef enum {
 	DCTP_SR_SYNC,
 	DCTP_PING,
 	DCTP_PASSWORD,
+	DCTP_SAVE_CONFIG,
 } DCTP_cmd_code_t;
 
 typedef struct{
@@ -68,6 +69,7 @@ DCTP_command_t DCTP_cmd_list[] = {
 	{ "dctp_sr_sync",         DCTP_SR_SYNC },
 	{ "dctp_ping" ,           DCTP_PING },
 	{ "dctp_password" ,       DCTP_PASSWORD },
+	{ "dctp_save_config",     DCTP_SAVE_CONFIG }, 
 	{ "",                     UNDEF_COMMAND},
 };
 

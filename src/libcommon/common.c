@@ -4,6 +4,41 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 
+int t_gets(FILE * stream, char end_simbol, char * out, int size, int start)
+{
+	if ( out == NULL )  return -1;
+	if ( feof(stream) ) return EOF;
+	if ( start < 0 )    return -1;
+	
+	if ( stream == stdin ) __fpurge(stream);
+	int i;
+	char last = ' ';
+	
+	for( i = start; i < (size - 1); i++ )
+	{	
+		char c = fgetc(stream);
+		if (c == '\t') c = ' ';
+		if (c == '\n' || c == EOF || (end_simbol != 0 && c == end_simbol)) 
+		{
+			if (i > 0 && out[ i - 1 ] == ' ') out[ i - 1] = '\0';
+			if (c == EOF) return EOF;
+			break;
+		}
+		else 
+			if ( last != ' ' || c != ' ') 
+				out[i] = c;
+			else
+				i--;
+		
+		last = c;
+	}
+	
+	out[i] = '\0';
+	
+	if ( stream == stdin ) __fpurge(stream);
+	return 0;
+}
+
 void generate_salt(char * salt, int size)
 {
 	int i = 0;
