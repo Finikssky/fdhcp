@@ -30,7 +30,7 @@ void add_log(char * s)
 	long sec = now.tv_sec;
 	
 	FILE *fd = fopen(filename, "a+");
-	fprintf(fd, "[ %2d:%2d:%2d ] %s\n", (sec / (60 * 24)) % 24 ,(sec / 60) % 60, sec % 60 , s);
+	fprintf(fd, "[ %02ld:%02ld:%02ld ] %s\n", (sec / (60 * 24)) % 24 ,(sec / 60) % 60, sec % 60 , s);
 	fclose(fd);
 }
 
@@ -62,7 +62,7 @@ int is_char_option(int option)
 
 int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 {
-	printf("<%s> option: %3d ret_size: %3d\n", __FUNCTION__, option, size);
+	//printf("<%s> option: %3d ret_size: %3d\n", __FUNCTION__, option, size);
 	if (ret_value == NULL) return -1;
 	if (size == 0) 		   return -1;
 	
@@ -76,7 +76,7 @@ int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 		if (code == 255) break;
 		
 		int len  = dhc->options[i + 1];
-		printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
+		//printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
 		if (code == option)
 		{
 			if ( size >= len && (nod(size, len) > 1 || is_char_option(option)) )
@@ -100,11 +100,6 @@ int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 	}
 	
 	return -1;
-}
-
-long get_lease_time()
-{ //TODO убрать
-	return 60;
 }
 
 //Получение адреса интерфейса
@@ -136,7 +131,7 @@ int get_iface_ip(char * iface)
 //Обертка для recvfrom с таймаутом на селекте
 int recv_timeout(int sock, void * buf, int timeout)
 {
-	printf("<%s> sock: %d timeout: %d\n", __FUNCTION__, sock, timeout);
+	//printf("<%s> sock: %d timeout: %d\n", __FUNCTION__, sock, timeout);
 	fd_set rdfs;
 	struct timeval tv;
 	int ret;

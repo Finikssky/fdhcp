@@ -12,7 +12,7 @@
 #include "core.h"
 #include "common.h"
 
-#define PTABLE_COUNT   8
+#define PTABLE_COUNT   9
 #define S_CONFIG_FILE "dsc.conf"
 
 void * iface_loop (void * iface);
@@ -73,7 +73,7 @@ int save_config(DSERVER * server, char * c_file)
 					char start_address[INET_ADDRSTRLEN];
 					char end_address[INET_ADDRSTRLEN];
 					inet_ntop(AF_INET, &pool->range.start_address, start_address, sizeof(start_address));
-					inet_ntop(AF_INET, &pool->range.start_address, end_address, sizeof(end_address));
+					inet_ntop(AF_INET, &pool->range.end_address, end_address, sizeof(end_address));
 					fprintf(fd, "        %s: %s-%s\n", "range", start_address, end_address);
 					pool = pool->next;
 				}
@@ -293,6 +293,7 @@ int send_answer(void * buffer, void * arg)
 	add_log("Sending DHCPACK/DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
+	long ltime = 0;
 	
 	//Проверяем доступен ли адрес
 	int result = get_proof(dhc, &dhc->yiaddr.s_addr);
@@ -300,9 +301,10 @@ int send_answer(void * buffer, void * arg)
 	{	
 		//В случае положительного ответа отправляем АСК
 		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
-		if (-1 == create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface)) return -1;
+		ltime = create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface);
+		if (ltime == -1) return -1;
 		create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL); //TODO refactoring lease_time
+		s_add_lease(interface, dhc->yiaddr.s_addr, dhc->chaddr, ltime); //TODO refactoring lease_time
 	}
 	else if (result == 0)  
 	{	
@@ -316,7 +318,7 @@ int send_answer(void * buffer, void * arg)
 	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
 	add_log("DHCPACK/DHCPNAK sended!");
-	return 0;
+	return ltime;
 }
 
 void * s_recvDHCP(void * arg)
@@ -533,9 +535,10 @@ void init_ptable(int size)
 	ptable[4].currstate = OFFER;  ptable[4].in = UNKNOWN;      ptable[4].nextstate = CLOSE;  ptable[4].fun = send_offer;
 
 	ptable[5].currstate = ANSWER; ptable[5].in = DHCPREQUEST;  ptable[5].nextstate = ANSWER; ptable[5].fun = send_answer;
-	ptable[6].currstate = ANSWER; ptable[6].in = UNKNOWN;      ptable[6].nextstate = NAK;    ptable[6].fun = send_answer;
+	ptable[6].currstate = ANSWER; ptable[6].in = DHCPDECLINE;  ptable[6].nextstate = NAK;    ptable[6].fun = send_answer;
+	ptable[7].currstate = ANSWER; ptable[7].in = UNKNOWN;      ptable[7].nextstate = NAK;    ptable[7].fun = send_answer;
 
-	ptable[7].currstate = NAK;    ptable[7].in = 0;            ptable[7].nextstate = CLOSE;  ptable[7].fun = send_nak;
+	ptable[8].currstate = NAK;    ptable[8].in = 0;            ptable[8].nextstate = CLOSE;  ptable[8].fun = send_nak;
 }
 
 void * sm(void * arg)

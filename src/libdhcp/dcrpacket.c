@@ -35,7 +35,7 @@ u_int32_t wrapsum (sum)
 	return htons(sum);
 }
 
-int create_server_options(char * options, dserver_subnet_t * subnet, dserver_interface_t * interface)
+int create_server_options(char * options, dserver_subnet_t * subnet, dserver_interface_t * interface, long * ltime)
 {
 	int cnt = 0;
 	
@@ -49,20 +49,19 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 	//Установка времени аренды адреса
 	options[cnt++] = 51;
 	options[cnt++] = 4;
-	long ltime;
 	if (subnet->lease_time != 0)
-		ltime = htonl(subnet->lease_time);
+		*ltime = htonl(subnet->lease_time);
 	else
 	{
 		if (interface->settings.global.default_lease_time != 0 )
-			ltime = htonl(interface->settings.global.default_lease_time);
+			*ltime = htonl(interface->settings.global.default_lease_time);
 		else
 		{
-			ltime = htonl(60);
+			*ltime = htonl(60);
 			
 		}
 	}
-	memcpy(options + cnt, &ltime, sizeof(long));
+	memcpy(options + cnt, ltime, sizeof(long));
 	cnt += 4;
 	
 	//option 1, subnet netmask, must have
@@ -136,7 +135,7 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 	return cnt;
 }
 
-int create_offer(void * iface, char * options, u_int32_t * y_addr)
+int create_offer(void * iface, char * options, u_int32_t * y_addr, long * ltime)
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
@@ -169,12 +168,12 @@ int create_offer(void * iface, char * options, u_int32_t * y_addr)
 		pool = pool->next;
 	}
 	
-	cnt = create_server_options(options, subnet, interface);
+	cnt = create_server_options(options, subnet, interface, ltime);
 	if ( -1 == cnt ) return -1;
 	return (cnt + 7);
 }
 
-int create_ack( void * iface, char * options, u_int32_t * y_addr )
+int create_ack( void * iface, char * options, u_int32_t * y_addr , long * ltime)
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
@@ -211,7 +210,7 @@ int create_ack( void * iface, char * options, u_int32_t * y_addr )
 		return -1;
 	}
 		
-	cnt = create_server_options(options, subnet, interface);
+	cnt = create_server_options(options, subnet, interface, ltime);
 	if ( -1 == cnt ) return -1;
 	return (cnt + 7);
 }
@@ -220,6 +219,7 @@ int create_ack( void * iface, char * options, u_int32_t * y_addr )
 u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void * arg)
 {
 	struct dhcp_packet * cldhcp = (struct dhcp_packet *)(buffer + FULLHEAD_LEN);
+	long ltime = 0;
 	add_log("Creating DHCP packet...");
 
 	cldhcp->op    = btype;
@@ -263,7 +263,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	
 	if	(dtype == DHCPOFFER)
 	{
-		cnt = create_offer(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr);
+		cnt = create_offer(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr, &ltime);
 		if ( cnt == -1 ) 
 		{	
 			add_log("create offer fail");
@@ -274,7 +274,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	if (dtype == DHCPACK)
 	{
 		//Установка возвращаемого адреса		
-		cnt = create_ack(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr);
+		cnt = create_ack(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr, &ltime);
 		if ( cnt == -1 ) 
 		{	
 			add_log("create ack fail");
@@ -315,6 +315,8 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	memset(cldhcp->options + cnt, 0, sizeof(cldhcp->options) - cnt); //Очистка оставшегося поля пакета
 
 	add_log("Succesful created DHCP packet");
+	
+	if (dtype == DHCPACK || dtype == DHCPOFFER) return ntohl(ltime);
 	return cldhcp->xid; //Возврат идентификатора сессии
 }
 

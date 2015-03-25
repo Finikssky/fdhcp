@@ -16,14 +16,17 @@
 
 #define TIMEPAUSE 10
 
-struct session { 
-	int sid;                        //Идентификатор сессии
-	int state; 			//Идентификатор состояния
-	int ctime;  			//Время последней смены состояния
+struct session 
+{ 
+	int sid; 					//Идентификатор сессии
+	int state; 					//Идентификатор состояния
+	int ctime;  				//Время последней смены состояния
+	int ltime;					//Время аренды
 	struct qmessage mess;		//Последнее принятое сообщение
 };
 
-struct pass {
+struct pass 
+{
 	int currstate;
 	int in;
 	int nextstate;
@@ -32,9 +35,9 @@ struct pass {
 
 int ptable_count;
 
-int search_sid(int xid, int scount, struct session **ses);
-int get_stype(int stat, struct qmessage mess);
-int change_state(int xid, int dtype,struct qmessage mess, struct session **ses, int *scount, void * interface);
+int  search_sid(int xid, int scount, struct session **ses);
+int  get_stype(int stat, struct qmessage mess);
+int  change_state(int xid, int dtype, struct qmessage mess, struct session **ses, int * scount, void * interface);
 void clear_context(struct session **ses, int *scount, void * interface);
 
 #endif

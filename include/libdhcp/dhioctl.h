@@ -15,5 +15,4 @@ void print_dhcp_options(struct dhcp_packet *dhc);
 void printip(u_int32_t ip); 
 void printmac(unsigned char *mac);
 void add_log(char *s);
-long get_lease_time();
 #endif

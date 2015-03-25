@@ -73,21 +73,20 @@ int arp_proof(char * iface, char * buffer)
 int printDHCP(char * buffer, char * iface)
 {//Переделать
 	struct dhcp_packet * dhc = (struct dhcp_packet *) (buffer + FULLHEAD_LEN);
-	int ip = htonl(dhc->yiaddr.s_addr);
-	printf("Your offer: "); printip(ip);
+	printf("Your offer: "); printip(dhc->yiaddr.s_addr);
 
 	u_int32_t sip = 1;
 	long time     = 1;
-	char * iter   = (char *)dhc->options;
 	
 	//Получаем адрес сервера
 	if (-1 == get_option(dhc, 54, &sip, sizeof(sip)))   return -1;	
 	printf("SIP "); printip(sip);		
 	
 	if (-1 == get_option(dhc, 51, &time, sizeof(time))) return -1;	
-	
 	//Добавляем запись в лиз клиента		
-	add_lease(iface, dhc->yiaddr.s_addr, sip, time);
+	add_lease(iface, dhc->yiaddr.s_addr, sip, ntohl(time));
+	
+	return 0;
 }
 
 int get_iface_idx_by_name(char * ifname, DCLIENT * client)
@@ -221,7 +220,6 @@ request:
 		else
 		{
 			set_my_mac(interface->name, macs);
-			memset(buf, 0, sizeof(buf));
 			create_ethheader((void *)buf, macs, macd, ETH_P_IP);
 			create_ipheader(buf, INADDR_ANY, INADDR_BROADCAST);
 			create_packet(interface->name, buf, 1, DHCPDECLINE, (void *)interface);
@@ -289,7 +287,8 @@ int main()
 	srand(time(NULL));
 
 	strcpy(client.interfaces[0].name, "eth0");
-	strcpy(client.interfaces[1].name, "eth1");
+	strcpy(client.interfaces[1].name, "eth1"); //Функция получения интерфейсов
+	strcpy(client.interfaces[2].name, "eth1:0");
 
 	pthread_create(&manipulate_tid, NULL, manipulate, (void *)&client);
 
