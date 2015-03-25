@@ -70,33 +70,22 @@ int arp_proof(char * iface, char * buffer)
 	return 0;
 }
 
-void printDHCP(char * buffer, char * iface)
+int printDHCP(char * buffer, char * iface)
 {//Переделать
-	struct dhcp_packet *dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
+	struct dhcp_packet * dhc = (struct dhcp_packet *) (buffer + FULLHEAD_LEN);
 	int ip = htonl(dhc->yiaddr.s_addr);
-	printf("Your offer: %d.%d.%d.%d\n", (ip>>24)&0xff, (ip>>16)&0xff, (ip>>8)&0xff, ip&0xff);
+	printf("Your offer: "); printip(ip);
 
 	u_int32_t sip = 1;
-	long time = 1;
-	char * iter = (char *)dhc->options;
+	long time     = 1;
+	char * iter   = (char *)dhc->options;
 	
 	//Получаем адрес сервера
-	get_option(dhc, 54, &sip, sizeof(sip));	
+	if (-1 == get_option(dhc, 54, &sip, sizeof(sip)))   return -1;	
 	printf("SIP "); printip(sip);		
 	
-	//Получаем время аренды
-	while (*iter != 51)
-	{
-		if (*iter == 255) 
-		{ 
-			time = 0; 
-			break;
-		}
-		iter++;
-	}
-
-	if (time != 0) memcpy(&time, iter+2, sizeof(time));
-
+	if (-1 == get_option(dhc, 51, &time, sizeof(time))) return -1;	
+	
 	//Добавляем запись в лиз клиента		
 	add_lease(iface, dhc->yiaddr.s_addr, sip, time);
 }
@@ -137,6 +126,7 @@ int execute_DCTP_command(DCTP_COMMAND * in, DCLIENT * client)
 {
 	char ifname[IFNAMELEN];
 	DCTP_cmd_code_t code = parse_DCTP_command(in, ifname);
+	if (code == UNDEF_COMMAND) return -1;
 	int idx = -1;
 	
 	switch (code)
@@ -147,29 +137,33 @@ int execute_DCTP_command(DCTP_COMMAND * in, DCLIENT * client)
 			strcpy(client->interfaces[idx].settings.server_address, in->arg);
 			printf("set server address on interfase %s : %s\n", ifname, in->arg);
 			break;
+			
 		case CL_SET_IFACE_ENABLE:
 			idx = get_iface_idx_by_name(ifname, client);
 			if ( idx == -1 ) return -1;
 			if ( client->interfaces[idx].enable == 1) return -1;
 			if ( -1 == enable_interface(&client->interfaces[idx], idx) ) return -1;
 			break;
+			
 		case CL_SET_IFACE_DISABLE:
 			idx = get_iface_idx_by_name(ifname, client);
 			if ( idx == -1 ) return -1;
 			if ( client->interfaces[idx].enable == 0) return -1;
 			if ( -1 == disable_interface(&client->interfaces[idx], idx) ) return -1;
 			break;
+			
 		case DCTP_PING:
 			break;
+			
 		case DCTP_PASSWORD:
 			if (-1 == check_password(client, in->arg)) return -1;
 			break;
+			
 		default:
 			printf("unknown command!\n");
 			return -1;
 	}
 	
-	printf("%s: %s\n", in->name, in->arg);
 	return 0;
 }
 
@@ -201,7 +195,7 @@ start:
 			goto start;
 		}
 
-		printDHCP(buf, interface->name);
+		if (-1 == printDHCP(buf, interface->name)) goto start;
 		REQ_ADDR = INADDR_BROADCAST;
 
 request:	
@@ -220,7 +214,7 @@ request:
 		}
 		
 		REQ_ADDR = INADDR_BROADCAST;
-		printDHCP(buf, interface->name);	
+		if (-1 == printDHCP(buf, interface->name)) goto start;	
 	
 		//Посылаем проверочный ARP-запрос, в случае неудачи отсылаем DHCPDECLINE
 		if (arp_proof(interface->name, buf) == 0) break;
@@ -267,7 +261,7 @@ request:
 
 }
 
-void *manipulate( void *client )
+void * manipulate( void * client )
 {
 	int sock = init_DCTP_socket(DCL_DCTP_PORT);
 	
@@ -300,5 +294,6 @@ int main()
 	pthread_create(&manipulate_tid, NULL, manipulate, (void *)&client);
 
 	pthread_join(manipulate_tid, NULL);
+	
 	return 0;
 }

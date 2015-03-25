@@ -269,7 +269,7 @@ int send_nak(void * buffer, void * arg)
 	unsigned char macb[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 	dserver_interface_t * interface = (dserver_interface_t *) arg;
 	
-add_log("Sending DHCPNAK..");
+	add_log("Sending DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
 
@@ -278,7 +278,7 @@ add_log("Sending DHCPNAK..");
 	create_ipheader(buffer, get_iface_ip(interface->name), INADDR_BROADCAST);
 	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
-add_log("DHCPNAK sended!");
+	add_log("DHCPNAK sended!");
 	return 0;
 }
 
@@ -430,14 +430,14 @@ void * s_fsmDHCP(void * arg)
 int enable_interface(dserver_interface_t * interface, int idx)
 {
 	interface->enable = 1;
-	interface->c_idx = idx;
+	interface->c_idx  = idx;
 	interface->listen_sock = init_packet_sock(interface->name, ETH_P_ALL); //? ETH_P_ALL
 	interface->send_sock   = init_packet_sock(interface->name, ETH_P_IP); 
 	
 	if (interface->listen_sock == -1 || interface->send_sock == -1) return -1;
 	
 	int result;
-
+	
 	result = pthread_create(&interface->listen, NULL, s_recvDHCP, (void *)interface); //Создание потока приема
 	if (result != 0)
 	{
@@ -592,12 +592,9 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 		dserver_subnet_t * prev = subnet->prev;
 		dserver_subnet_t * next = subnet->next;
 
-		//printf("subn: %p subs:%p prev: %p next: %p\n", subnet, interface->settings.subnets, prev, next);
-
 		if (subnet == interface->settings.subnets)
 		{
 			free(interface->settings.subnets);
-			//printip(interface->settings.subnets->address);
 			interface->settings.subnets = next;
 			if (next)
 				interface->settings.subnets->prev = NULL;
@@ -609,7 +606,6 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 			if (next)
 				next->prev = subnet->prev;
 			free(subnet);
-			//printip(subnet->address);
 		}
 
 		return 0;
@@ -621,8 +617,8 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char * args)
 { //todo refactoring
 	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
-	dserver_subnet_t * temp = NULL;
+	dserver_subnet_t      * subnet   = settings->subnets;
+	dserver_subnet_t      * temp     = NULL;
 	
 	char * address;
 	char * mask;
@@ -634,7 +630,7 @@ dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char
 	}
 	
 	address = args;
-	mask = strchr(args, ' ');
+	mask    = strchr(args, ' ');
 	if (mask == NULL)
 	{
 		printf("low args to add subnet, please add mask\n");
@@ -663,27 +659,27 @@ dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char
 			printf("Subnet %s/%s exist!\n", address, mask);
 			return NULL;
 		}
-		temp = subnet;
+		temp   = subnet;
 		subnet = subnet->next;
 		printf("%d go next\n", temp->address);
 	}
 	
 	subnet = malloc(sizeof(dserver_subnet_t));
 	memset(subnet, 0, sizeof(*subnet));
-	subnet->address = a_sa.sin_addr.s_addr;
-	subnet->netmask = m_sa.sin_addr.s_addr;
+	subnet->address        = a_sa.sin_addr.s_addr;
+	subnet->netmask        = m_sa.sin_addr.s_addr;
 	subnet->free_addresses = 0;
-	subnet->lease_time = 0; 
+	subnet->lease_time     = 0; 
 
 	if (settings->subnets == NULL)
 	{
 		settings->subnets = subnet;
-		subnet->prev = NULL;
-		subnet->next = NULL;
+		subnet->prev      = NULL;
+		subnet->next      = NULL;
 	}
 	else
 	{
-		temp->next = subnet;
+		temp->next   = subnet;
 		subnet->next = NULL;
 		subnet->prev = temp;
 	}
@@ -881,7 +877,7 @@ int add_dns_to_subnet(dserver_subnet_t * subnet, char * address)
 
 int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 {
-	dserver_dns_t * dns = subnet->dns_servers;
+	dserver_dns_t * dns  = subnet->dns_servers;
 	dserver_dns_t * temp = NULL;
 	
 	if (address == NULL) return -1;
@@ -915,7 +911,7 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 int add_router_to_subnet(dserver_subnet_t * subnet, char * address)
 {
 	dserver_router_t * router = subnet->routers;
-	dserver_router_t * temp = NULL;
+	dserver_router_t * temp   = NULL;
 	
 	if (address == NULL) return -1;
 	
@@ -934,7 +930,7 @@ int add_router_to_subnet(dserver_subnet_t * subnet, char * address)
 		{
 			printf("router is exist");
 		}
-		temp = router;
+		temp   = router;
 		router = router->next;
 	}
 	
@@ -990,8 +986,10 @@ int set_domain_name_on_subnet(dserver_subnet_t * subnet, char * args)
 {
 	if ( args == NULL ) return -1;
 	if ( strlen(args) >= sizeof(subnet->domain_name) ) return -1;
+	
 	strncpy(subnet->domain_name, args, sizeof(subnet->domain_name));
 	printf("set domain name: %s\n", args);
+	
 	return 0;
 }
 
@@ -999,17 +997,18 @@ int set_host_name_on_subnet(dserver_subnet_t * subnet, char * args)
 {
 	if ( args == NULL ) return -1;
 	if ( strlen(args) >= sizeof(subnet->host_name) ) return -1;
+	
 	strncpy(subnet->host_name, args, sizeof(subnet->host_name));
 	printf("set host name: %s\n", args);
+	
 	return 0;
 }
 
 long get_one_num(char * args)
 {
 	if (args == NULL || strlen(args) == 0) return -1;
-	if (strchr(args, ' ')) return -1;
-	
-	char *endptr;
+		
+	char * endptr;
 	long ret;
 
 	errno = 0;
@@ -1034,7 +1033,9 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 {
 	printf("<%s>\n", __FUNCTION__);
 	char ifname[IFNAMELEN];
+	
 	DCTP_cmd_code_t code = parse_DCTP_command(in, ifname);
+	if (code == UNDEF_COMMAND) return -1;
 	int idx = -1;
 	
 	printf("%s: %s\n", in->name, in->arg);

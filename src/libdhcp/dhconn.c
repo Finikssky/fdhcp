@@ -61,7 +61,7 @@ int recvARP(int sock, char * iface, u_int32_t ip)
 {
 	int bytes;
 	char buf[120];
-	struct ethheader * eth;
+	struct ethheader  * eth;
 	struct arp_packet * arp;
 	
 	unsigned char iface_mac[6];
@@ -112,7 +112,7 @@ int recvARP(int sock, char * iface, u_int32_t ip)
 
 //Sending dhcp packet
 
-int sendDHCP(int sock, char *iface, void* buffer, int size)
+int sendDHCP(int sock, char * iface, void * buffer, int size)
 {
 	if (size == 0) size = FULLHEAD_LEN + sizeof(struct dhcp_packet);
 

@@ -11,7 +11,7 @@ void clear_lease()
 
 	add_log("Clearing lease...");
 
-	memset(&lease,0,sizeof(lease));
+	memset(&lease, 0, sizeof(lease));
 
 	fd = fopen("s_dhcp.lease", "r");
 	if (fd == NULL)
@@ -23,14 +23,14 @@ void clear_lease()
 	newfd = fopen("~s_dhcp.lease", "w+");
 
 	//Читаем записи из базы и записываем действительные во временный файл
-        while(fread(&lease, sizeof(lease), 1, fd))
+	while(fread(&lease, sizeof(lease), 1, fd))
 	{
-                gettimeofday(&tv, NULL);
-                if (lease.stime + lease.ltime > tv.tv_sec) 
+		gettimeofday(&tv, NULL);
+		if (lease.stime + lease.ltime > tv.tv_sec) 
 		{
-                        fwrite(&lease, sizeof(lease), 1, newfd);
+			fwrite(&lease, sizeof(lease), 1, newfd);
 		}
-        }
+	}
 
 	fclose(fd);
 	fclose(newfd);
@@ -47,7 +47,7 @@ void clear_lease()
 int in_lease(int ip)
 {
 	FILE *fd;
-	unsigned char *iter;
+	unsigned char * iter;
 	struct s_dhcp_lease lease,ret;
 	struct timeval tv;
 	int exist;
@@ -66,13 +66,13 @@ int in_lease(int ip)
 	exist = 0;
 	while (fread(&lease, sizeof(lease), 1, fd))
 	{
-		memset(&ret,0,sizeof(ret));
+		memset(&ret, 0, sizeof(ret));
 		printip(lease.ip);
 		printip(ip);
 		if(lease.ip == ip) 
 		{
 			ret = lease;
-			exist =1 ;
+			exist = 1 ;
 		}
 	}
 	//Если адреса нет в базе
@@ -86,7 +86,7 @@ int in_lease(int ip)
 	gettimeofday(&tv, NULL);
 
 	//Если запись с адресом недействительна
-	if((ret.stime + ret.ltime) < tv.tv_sec) 
+	if ((ret.stime + ret.ltime) < tv.tv_sec) 
 	{
 		fclose(fd);
 		add_log("Good IP");
@@ -148,7 +148,7 @@ int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 		memset(&ret, 0, sizeof(ret));
 		printip(lease.ip);
 		printip(*address);
-		if(lease.ip == *address) 
+		if (lease.ip == *address) 
 		{
 			ret = lease;
 			exist = 1;
@@ -284,7 +284,7 @@ int s_add_lease(u_int32_t ip, long time, unsigned char * mac, char * host)
 	
 	printf("ADDING MAC: ");	
 	printmac(mac);
-	if (mac != NULL) memcpy(lease.haddr, mac, ETH_ALEN);
+	if (mac  != NULL) memcpy(lease.haddr, mac, ETH_ALEN);
 	if (host != NULL) memcpy(lease.hostname, host, 9); //why 9?
 	
 	fwrite(&lease, sizeof(lease), 1, fd);

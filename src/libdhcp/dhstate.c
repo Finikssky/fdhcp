@@ -30,15 +30,15 @@ int get_stype(int stat, struct qmessage mess)
 	if (stat == START)
 	{
 		if (dhc->options[6] == DHCPDISCOVER) return DHCPDISCOVER;
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == OFFER)
 	{
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == ANSWER)
 	{
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
 	}
 
 	add_log("Validation fail! Unknown signal!");
@@ -67,7 +67,7 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 
 		num = *scount - 1;
 		memset(&((*ses)[num]), 0, sizeof(struct session));
-		(*ses)[num].sid = xid;
+		(*ses)[num].sid   = xid;
 		(*ses)[num].state = START;
 	}
 
@@ -110,7 +110,7 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 
 void clear_context(struct session **ses, int *scount, void * interface)
 {
-	struct session *new = NULL;
+	struct session * new = NULL;
 	int i,j;
 	int newscount = 0;
 	struct timeval now;
@@ -127,7 +127,7 @@ void clear_context(struct session **ses, int *scount, void * interface)
 	
 	//Очищаем старый массив и копируем временный в него
 	*scount = newscount;
-	*ses = realloc(*ses,(*scount)*sizeof(struct session));
+	*ses    = realloc(*ses,(*scount)*sizeof(struct session));
 	memset(*ses, 0, (*scount) * sizeof(struct session));
 	memcpy(*ses, new, (*scount)*sizeof(struct session));
 
@@ -153,7 +153,7 @@ void clear_context(struct session **ses, int *scount, void * interface)
 						{
 							ptable[j].fun((*ses)[i].mess.text, interface);
 							break;
-                		}
+						}
 					}
 					dserver_interface_t * ifs = (dserver_interface_t *)interface;
 					pushmessage((*ses)[i].mess, ifs->c_idx*2 + 1);

@@ -140,9 +140,9 @@ int create_offer(void * iface, char * options, u_int32_t * y_addr)
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
-	dserver_interface_t * interface = (dserver_interface_t *)iface;
-	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
+	dserver_interface_t   * interface = (dserver_interface_t *)iface;
+	dserver_if_settings_t * settings  = &interface->settings;
+	dserver_subnet_t      * subnet    = settings->subnets;
 	
 	while (subnet != NULL)
 	{
@@ -174,16 +174,16 @@ int create_offer(void * iface, char * options, u_int32_t * y_addr)
 	return (cnt + 7);
 }
 
-int create_ack( void * iface, char * options, u_int32_t * y_addr)
+int create_ack( void * iface, char * options, u_int32_t * y_addr )
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
-	dserver_interface_t * interface = (dserver_interface_t *)iface;
+	dserver_interface_t  * interface = (dserver_interface_t *)iface;
 	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
+	dserver_subnet_t      * subnet   = settings->subnets;
 	
 	int found = 0;
-	while(subnet != NULL)
+	while (subnet != NULL)
 	{
 		dserver_pool_t * pool = subnet->pools;
 		while (pool != NULL)
@@ -232,8 +232,8 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 		 #ifdef XIDSTEP
 		 cldhcp->xid = htonl(LASTRANDOM++);		
 		 #endif
-		 LASTRANDOM=LASTRANDOM%1000000;
-	 }
+		 LASTRANDOM = LASTRANDOM % 1000000;
+	}
 	cldhcp->secs  = 0;
 	cldhcp->flags = 0x0000;
 	
@@ -305,7 +305,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 		//Установка запрашиваемого адреса
 		cldhcp->options[cnt++] = 50;
 		cldhcp->options[cnt++] = 4;
-		if (get_lease(interface->name, cldhcp->options + cnt, NULL)==-1) return -1;
+		if (get_lease(interface->name, cldhcp->options + cnt, NULL) == -1) return -1;
 		cnt += 4;
 	
 		if (get_lease(interface->name, NULL, (unsigned char *)&cldhcp->siaddr.s_addr) == -1) return -1;
@@ -321,7 +321,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 //Create IP header
 void create_ipheader(char * buffer, int srcip, int destip ) 
 {
-	struct ip *ip = (struct ip*) (buffer + sizeof(struct ethheader));
+	struct ip *ip = (struct ip *) (buffer + sizeof(struct ethheader));
 
 	add_log("Creating IP header...");
 
@@ -350,13 +350,13 @@ void create_ipheader(char * buffer, int srcip, int destip )
 
 void create_udpheader(char * buffer, int srcport, int destport)
 {
-	struct udphdr * udp = (struct udphdr *) (buffer + sizeof(struct ethheader) + sizeof(struct ip));
-	struct ip * ip      = (struct ip*) (buffer + sizeof(struct ethheader));
-	struct dhcp_packet *dhc = (struct dhcp_packet *)(buffer + FULLHEAD_LEN);
+	struct udphdr      * udp = (struct udphdr *) (buffer + sizeof(struct ethheader) + sizeof(struct ip));
+	struct ip          * ip  = (struct ip *) (buffer + sizeof(struct ethheader));
+	struct dhcp_packet *dhc  = (struct dhcp_packet *)(buffer + FULLHEAD_LEN);
 
 	add_log("Creating UDP header...");
 
-	memset(udp,0,sizeof(udp));
+	memset(udp, 0, sizeof(udp));
 
 	udp->source = htons(srcport);
 	udp->dest   = htons(destport);
@@ -375,7 +375,7 @@ void create_udpheader(char * buffer, int srcport, int destport)
 //Create ETH header
 void create_ethheader(void * buffer, unsigned char * macs, unsigned char * macd, u_int16_t proto)
 {
-	struct ethheader * eth = (struct ethheader*)buffer;
+	struct ethheader * eth = (struct ethheader *)buffer;
 	add_log("Creating ETHERNET header...");
 
 	memcpy(eth->dmac, macd, ETH_ALEN);         //Установка адреса назначения
@@ -388,18 +388,18 @@ void create_ethheader(void * buffer, unsigned char * macs, unsigned char * macd,
 void create_arp(char * iface, char *buffer, int ip, char *macs, char *macd, int oper)
 {
 	
-	struct arp_packet * arp = (struct arp_packet*)(buffer + sizeof(struct ethheader));
+	struct arp_packet * arp = (struct arp_packet *)(buffer + sizeof(struct ethheader));
 	add_log("Creating ARP header..");
 
-	arp->hardware = htons( ARPHRD_ETHER );
-	arp->arp_protocol = htons( ETH_P_IP );
+	arp->hardware          = htons( ARPHRD_ETHER );
+	arp->arp_protocol      = htons( ETH_P_IP );
 	arp->arp_hard_addr_len = ETH_ALEN;
 	arp->arp_prot_addr_len = 4; /* размер ip адреса в байтах*/
-	arp->arp_operation = htons( ARPOP_REQUEST );
+	arp->arp_operation     = htons( ARPOP_REQUEST );
 	memcpy( arp->arp_mac_source, macs, ETH_ALEN );
 	memcpy( arp->arp_mac_target, macd, ETH_ALEN ); 
-	arp->arp_ip_target = ip;
-	arp->arp_ip_source = get_iface_ip(iface);
+	arp->arp_ip_target     = ip;
+	arp->arp_ip_source     = get_iface_ip(iface);
 
 	int offset = sizeof(struct ethheader) + sizeof(struct arp_packet);
 	memset((buffer + offset), 0, 60 - offset);

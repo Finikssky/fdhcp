@@ -11,11 +11,12 @@ void printip(u_int32_t ip)
 }
 
 //Печатаем MAC
-void printmac(unsigned char *mac)
+void printmac(unsigned char * mac)
 {
-printf("MAC: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1],
-				   mac[2], mac[3],
-				   mac[4], mac[5]);
+	printf("MAC: %x:%x:%x:%x:%x:%x\n", 
+					mac[0], mac[1],
+					mac[2], mac[3],
+					mac[4], mac[5]);
 }
 
 //Добавляем сообщение в лог
@@ -23,23 +24,14 @@ void add_log(char * s)
 {
 	char filename[32];
 	sprintf(filename, "log_%d.txt", getpid());
-	FILE *fd = fopen(filename, "a+");
-	fprintf(fd, "%s\n", s);
-	fclose(fd);
-}
-
-//Печать всех опций DHCP пакета
-void print_dhcp_options(struct dhcp_packet * dhc)
-{
-	int i;
-	printf("DHCP OPTIONS:\n");
 	
-	for(i = 0; i < DHCP_MIN_OPTION_LEN; i++)
-	{
-		printf("%3d ",dhc->options[i]);
-		if (i % 7 == 0 && i != 0) printf("\n"); 
-	}
-
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	long sec = now.tv_sec;
+	
+	FILE *fd = fopen(filename, "a+");
+	fprintf(fd, "[ %2d:%2d:%2d ] %s\n", (sec / (60 * 24)) % 24 ,(sec / 60) % 60, sec % 60 , s);
+	fclose(fd);
 }
 
 int nod(int a, int b)
@@ -124,10 +116,9 @@ int get_iface_ip(char * iface)
 	int hres;
 	add_log("Get interface's IP");
 
-
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	memset(&ifr,0,sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, iface, IFNAMSIZ);
        
 	hres = ioctl(sockfd, SIOCGIFADDR, &ifr);
@@ -222,8 +213,8 @@ int apply_interface_settings(char * buffer, char * iface)
 
 	memset(&sai, 0, sizeof(struct sockaddr));
 	sai.sin_family = AF_INET;
-	sai.sin_port = 0;
-	sai.sin_addr = dhc->yiaddr;
+	sai.sin_port   = 0;
+	sai.sin_addr   = dhc->yiaddr;
 
 	p = (char *) &sai;
 	memcpy( &ifr.ifr_addr, p, sizeof(struct sockaddr));
