@@ -99,7 +99,7 @@ int recvARP(int sock, char * iface, u_int32_t ip)
 		    0 == memcmp(eth->dmac, iface_mac, sizeof(iface_mac)) && 
 			arp->arp_operation == htons( ARPOP_REPLY ) &&
 			ip == arp->arp_ip_source
-			) 
+			) //TODO maybe another case when searching ip requesting anyone else
 		{ 
 			printf("This is binded ip!\n"); 
 			return 1;

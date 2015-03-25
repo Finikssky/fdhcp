@@ -302,7 +302,7 @@ int send_answer(void * buffer, void * arg)
 		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
 		if (-1 == create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface)) return -1;
 		create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL);
+		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL); //TODO refactoring lease_time
 	}
 	else if (result == 0)  
 	{	

@@ -115,6 +115,24 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 		options[dns_idx] = dns_len;
 	}
 	
+	// option 12, host_name
+	if (strlen(subnet->host_name) != 0)
+	{
+		options[cnt++] = 12; 
+		options[cnt++] = strlen(subnet->host_name);
+		memcpy(options + cnt, subnet->host_name, strlen(subnet->host_name));
+		cnt += strlen(subnet->host_name);
+	}
+	
+	// option 15, domain_name
+	if (strlen(subnet->domain_name) != 0)
+	{
+		options[cnt++] = 15; 
+		options[cnt++] = strlen(subnet->domain_name);
+		memcpy(options + cnt, subnet->domain_name, strlen(subnet->domain_name));
+		cnt += strlen(subnet->domain_name);
+	}
+	
 	return cnt;
 }
 
