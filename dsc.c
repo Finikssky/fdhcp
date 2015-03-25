@@ -6,6 +6,7 @@
 #include "dleases.h"
 #include "timer.h"
 #include <pthread.h>
+#include <limits.h>
 #include <net/if.h>
 
 #include "core.h"
@@ -25,6 +26,8 @@ dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char
 int add_pool_to_subnet(dserver_subnet_t * subnet, char * range);
 int add_dns_to_subnet(dserver_subnet_t * subnet, char * address);
 int add_router_to_subnet(dserver_subnet_t * subnet, char * address);
+int set_host_name_on_subnet(dserver_subnet_t * subnet, char * args);
+int set_domain_name_on_subnet(dserver_subnet_t * subnet, char * args);
 
 long get_one_num(char * args);
 
@@ -39,7 +42,7 @@ int save_config(DSERVER * server, char * c_file)
 		dserver_interface_t * interface = &server->interfaces[i];
 		if (strlen(interface->name) != 0)
 		{
-			fprintf(fd, "interface:%s\n", interface->name);
+			fprintf(fd, "interface: %s\n", interface->name);
 			
 			fprintf(fd, "    %s\n", interface->enable == 1 ? "enable" : "disable");
 			
@@ -53,8 +56,16 @@ int save_config(DSERVER * server, char * c_file)
 				inet_ntop(AF_INET, &subnet->address, subnet_addr, sizeof(subnet_addr));
 				inet_ntop(AF_INET, &subnet->netmask, subnet_mask, sizeof(subnet_mask));
 				
-				fprintf(fd, "    %s:%s %s\n", "subnet", subnet_addr, subnet_mask);
-				fprintf(fd, "        %s:%ld\n", "lease_time", subnet->lease_time);
+				fprintf(fd, "    %s: %s %s\n", "subnet", subnet_addr, subnet_mask);
+				
+				if (subnet->lease_time != 0) 
+					fprintf(fd, "        %s: %ld\n", "lease_time", subnet->lease_time);
+				
+				if (strlen(subnet->host_name) != 0)
+					fprintf(fd, "        %s: %s\n", "host_name", subnet->host_name);
+				
+				if (strlen(subnet->domain_name) != 0)
+					fprintf(fd, "        %s: %s\n", "domain_name", subnet->domain_name);
 				
 				dserver_pool_t * pool = subnet->pools;
 				while (pool != NULL)
@@ -63,7 +74,7 @@ int save_config(DSERVER * server, char * c_file)
 					char end_address[INET_ADDRSTRLEN];
 					inet_ntop(AF_INET, &pool->range.start_address, start_address, sizeof(start_address));
 					inet_ntop(AF_INET, &pool->range.start_address, end_address, sizeof(end_address));
-					fprintf(fd, "        %s:%s-%s\n", "range", start_address, end_address);
+					fprintf(fd, "        %s: %s-%s\n", "range", start_address, end_address);
 					pool = pool->next;
 				}
 				
@@ -72,7 +83,7 @@ int save_config(DSERVER * server, char * c_file)
 				{
 					char dns_address[INET_ADDRSTRLEN];
 					inet_ntop(AF_INET, &dns->address, dns_address, sizeof(dns_address));
-					fprintf(fd, "        %s:%s\n", "dns-server", dns_address);
+					fprintf(fd, "        %s: %s\n", "dns-server", dns_address);
 					dns = dns->next;
 				}
 				
@@ -81,7 +92,7 @@ int save_config(DSERVER * server, char * c_file)
 				{
 					char router_address[INET_ADDRSTRLEN];
 					inet_ntop(AF_INET, &router->address, router_address, sizeof(router_address));
-					fprintf(fd, "        %s:%s\n", "router", router_address);
+					fprintf(fd, "        %s: %s\n", "router", router_address);
 					router = router->next;
 				}
 				fprintf(fd, "    %s\n", "end_subnet");
@@ -133,6 +144,22 @@ int load_subnet(FILE * fd, dserver_subnet_t * subnet)
 				printf("parse config error: set lease time\n");
 			else 
 				subnet->lease_time = ltime;
+		}
+		else if (0 == strcmp(com, "host_name"))
+		{
+			if (EOF == t_gets(fd, 0, args, sizeof(args), 0)) 
+				return -1;
+			
+			if (-1 == set_host_name_on_subnet(subnet, args))
+				printf("parse config error: set host name\n");
+		}
+		else if (0 == strcmp(com, "domain_name"))
+		{
+			if (EOF == t_gets(fd, 0, args, sizeof(args), 0)) 
+				return -1;
+			
+			if (-1 == set_domain_name_on_subnet(subnet, args))
+				printf("parse config error: set domain name\n");
 		}
 		else if (0 == strcmp(com, "end_subnet"))
 		{
@@ -275,7 +302,7 @@ int send_answer(void * buffer, void * arg)
 		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
 		if (-1 == create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface)) return -1;
 		create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL);
+		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL); //TODO refactoring lease_time
 	}
 	else if (result == 0)  
 	{	
@@ -676,7 +703,7 @@ dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args)
 	
 	if (strlen(args) < (2 * 7))
 	{
-		printf("low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
+		printf("low args to search subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
 		return NULL;
 	}
 	
@@ -684,7 +711,7 @@ dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args)
 	mask = strchr(args, ' ');
 	if (mask == NULL)
 	{
-		printf("low args to add subnet, please add mask\n");
+		printf("low args to search subnet, please add mask\n");
 		return NULL;
 	}
 	
@@ -959,12 +986,48 @@ int del_router_from_subnet(dserver_subnet_t * subnet, char * address)
 	return -1;
 }
 
+int set_domain_name_on_subnet(dserver_subnet_t * subnet, char * args)
+{
+	if ( args == NULL ) return -1;
+	if ( strlen(args) >= sizeof(subnet->domain_name) ) return -1;
+	strncpy(subnet->domain_name, args, sizeof(subnet->domain_name));
+	printf("set domain name: %s\n", args);
+	return 0;
+}
+
+int set_host_name_on_subnet(dserver_subnet_t * subnet, char * args)
+{
+	if ( args == NULL ) return -1;
+	if ( strlen(args) >= sizeof(subnet->host_name) ) return -1;
+	strncpy(subnet->host_name, args, sizeof(subnet->host_name));
+	printf("set host name: %s\n", args);
+	return 0;
+}
+
 long get_one_num(char * args)
 {
 	if (args == NULL || strlen(args) == 0) return -1;
 	if (strchr(args, ' ')) return -1;
 	
-	return atol(args);
+	char *endptr;
+	long ret;
+
+	errno = 0;
+	ret = strtol(args, &endptr, 10);
+
+	if ((errno == ERANGE && (ret == LONG_MAX || ret == LONG_MIN)) || (errno != 0 && ret == 0)) 
+	{
+		perror("strtol");
+		return -1;
+	}
+
+	if (endptr == args) 
+	{
+		printf("<%s> no digits were found in input str\n", __FUNCTION__);
+		return -1;
+	}
+	
+	return ret;
 }
 
 int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
@@ -1015,6 +1078,28 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			}
 			break;
 			
+		case SR_SET_HOST_NAME:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if (-1 == set_host_name_on_subnet(sub, in->arg)) return -1;
+			}
+			break;
+			
+		case SR_SET_DOMAIN_NAME:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if (-1 == set_domain_name_on_subnet(sub, in->arg)) return -1;
+			}
+			break;
+		
 		case SR_ADD_SUBNET:
 			idx = get_iface_idx_by_name(ifname, server);
 			if ( idx == -1 ) return -1;
@@ -1146,9 +1231,14 @@ int main()
 	//LOADING CONFIGURATION
 	DSERVER * temp_config = (DSERVER * )malloc(sizeof(*temp_config));
 	memset(temp_config, 0, sizeof(*temp_config));
+	
 	if (-1 != load_config(temp_config, S_CONFIG_FILE))
+	{
 		memcpy(&server, temp_config, sizeof(server));
+		save_config(&server, S_CONFIG_FILE);
+	}
 	free(temp_config);
+	
 	int i;
 	for (i = 0; i < MAX_INTERFACES; i++)
 	{	

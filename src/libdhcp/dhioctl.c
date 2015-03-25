@@ -55,9 +55,22 @@ int nod(int a, int b)
 	return a + b;
 }
 
+int is_char_option(int option)
+{
+	switch (option)
+	{
+		case 12:
+		case 15:
+			return 1;
+		default:
+			return 0;
+	}
+	return 0;
+}
+
 int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 {
-	printf("<%s> option: %d ret_size: %d\n", __FUNCTION__, option, size);
+	printf("<%s> option: %3d ret_size: %3d\n", __FUNCTION__, option, size);
 	if (ret_value == NULL) return -1;
 	if (size == 0) 		   return -1;
 	
@@ -74,12 +87,12 @@ int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 		printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
 		if (code == option)
 		{
-			if (size >= len && nod(size, len) > 1)
+			if ( size >= len && (nod(size, len) > 1 || is_char_option(option)) )
 			{
 				memcpy(ret_value, dhc->options + i + 2, len);
 				return len;
 			}
-			else if (size < len && nod(size, len) > 1)
+			else if ( size < len && (nod(size, len) > 1 || is_char_option(option)) )
 			{
 				memcpy(ret_value, dhc->options + i + 2, size);
 				return size;
@@ -100,27 +113,6 @@ int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 long get_lease_time()
 { //TODO убрать
 	return 60;
-}
-
-//Получение имени хоста из DHCP пакета
-char* get_host_from_pack(struct dhcp_packet *dhc){
-char *iter;
-char *ret=NULL;
-add_log("Get HOST OPTION from DHCP packet");
-    
-	iter=dhc->options+4;
-        while(*iter != 255){
-                if(*iter == 12){
-			 ret=malloc(*(iter+1)); //TODO СЖЕЧЬ!
-			 printf("hi\n");
-			 memcpy(&ret,iter+2,*(iter+1));
-			 return ret;
-		 }
-                iter++;
-        }
-
-add_log("Succesful get HOST OPTION from DHCP packet");
-return NULL;
 }
 
 //Получение адреса интерфейса
@@ -273,6 +265,7 @@ int apply_interface_settings(char * buffer, char * iface)
 			u_int32_t ip;
 			memcpy(&ip, &routers[ 4 * router_cnt ], sizeof(ip)); 
 			printf("    SET ROUTER %d ---> ", router_cnt + 1); printip(ip);
+			//TODO
 		}
 	}
 	
@@ -300,6 +293,24 @@ int apply_interface_settings(char * buffer, char * iface)
 			fprintf(fd, "nameserver %d.%d.%d.%d\n", ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff);
 		}
 		fclose(fd);
+	}
+	
+	//set host_name
+	char hostname[32];
+	hres = get_option(dhc, 12, (void *)hostname, sizeof(hostname));
+	if (hres > 0)
+	{
+		printf("SETUP HOSTNAME: %s\n", hostname);
+		//TODO
+	}
+	
+	//set domain_name
+	char dname[32];
+	hres = get_option(dhc, 15, (void *)dname, sizeof(dname));
+	if (hres > 0)
+	{
+		printf("SETUP DOMAIN NAME: %s\n", dname);
+		//TODO
 	}
 	
 	add_log("Successful set interface configuration");
