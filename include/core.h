@@ -41,14 +41,16 @@ struct dserver_subnet_s
 	struct dserver_subnet_s * next;
 	struct dserver_subnet_s * prev;
 	
-	u_int32_t netmask;
+	u_int32_t netmask; // opt 1
 	u_int32_t address;
 	
-	long lease_time;
+	long lease_time; //opt 51
+	char host_name[32]; // opt 12
+	char domain_name[32]; // opt 15
 	
-	dserver_router_t  * routers;
+	dserver_router_t  * routers; // opt 3
 	dserver_pool_t    * pools;
-	dserver_dns_t     * dns_servers;
+	dserver_dns_t     * dns_servers; // opt 6
 	
 	int free_addresses;
 };

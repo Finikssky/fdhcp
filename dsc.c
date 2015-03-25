@@ -676,7 +676,7 @@ dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args)
 	
 	if (strlen(args) < (2 * 7))
 	{
-		printf("low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
+		printf("low args to search subnet:\n   args: %s\n   len: %d!\n", args, strlen(args));
 		return NULL;
 	}
 	
@@ -684,7 +684,7 @@ dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args)
 	mask = strchr(args, ' ');
 	if (mask == NULL)
 	{
-		printf("low args to add subnet, please add mask\n");
+		printf("low args to search subnet, please add mask\n");
 		return NULL;
 	}
 	
@@ -1015,6 +1015,32 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			}
 			break;
 			
+		case SR_SET_HOST_NAME:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if ( in->arg == NULL || strlen(in->arg) == 0) return -1;
+				strncpy(sub->host_name, in->arg, sizeof(sub->host_name));
+				printf("set host name: %s\n", in->arg);
+			}
+			break;
+			
+		case SR_SET_DOMAIN_NAME:
+			idx = get_iface_idx_by_name(ifname, server);
+			if ( idx == -1 ) return -1;
+			else 
+			{
+				dserver_subnet_t * sub = search_subnet(&server->interfaces[idx], in->arg);
+				if ( NULL == sub ) return -1;
+				if ( in->arg == NULL || strlen(in->arg) == 0) return -1;
+				strncpy(sub->domain_name, in->arg, sizeof(sub->domain_name));
+				printf("set domain name: %s\n", in->arg);
+			}
+			break;
+		
 		case SR_ADD_SUBNET:
 			idx = get_iface_idx_by_name(ifname, server);
 			if ( idx == -1 ) return -1;
