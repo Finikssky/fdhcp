@@ -8,6 +8,7 @@ all:
 
 utils:
 	$(CC) $(CFLAGS) -o sender sender.c -L./libs -ldyndctp -ldyncommon
+	$(CC) $(CFLAGS) -o test_nagr dnagr.c -L./libs -ldyndhcp -ldynqueue -ldyncommon -pthread
 
 clean: 
 	make -C src/ clean

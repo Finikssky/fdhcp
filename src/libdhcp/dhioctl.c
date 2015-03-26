@@ -79,7 +79,7 @@ int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 		//printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
 		if (code == option)
 		{
-			if ( size >= len && (nod(size, len) > 1 || is_char_option(option)) )
+			if ( size >= len && (nod(size, len) > 1 || is_char_option(option) || len == 1) )
 			{
 				memcpy(ret_value, dhc->options + i + 2, len);
 				return len;
