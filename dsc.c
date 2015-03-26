@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <limits.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 
 #include "core.h"
 #include "common.h"
@@ -30,6 +31,33 @@ int set_host_name_on_subnet(dserver_subnet_t * subnet, char * args);
 int set_domain_name_on_subnet(dserver_subnet_t * subnet, char * args);
 
 long get_one_num(char * args);
+
+int get_iface_idx_by_name(char * ifname, DSERVER * server);
+
+int init_interfaces(DSERVER * server)
+{
+	struct ifaddrs * ifa;
+	struct ifaddrs * iter;
+	int i;
+	
+	getifaddrs (&ifa);
+	
+	for (i = 0, iter = ifa; iter != NULL && i < MAX_INTERFACES; i++, iter = iter->ifa_next)
+	{
+		if ( -1 != get_iface_idx_by_name(iter->ifa_name, server) ) continue;
+		if ( (iter->ifa_flags & IFF_POINTOPOINT) == IFF_POINTOPOINT ) continue;
+		if ( (iter->ifa_flags & IFF_LOOPBACK) == IFF_LOOPBACK ) continue;
+		
+		strncpy(server->interfaces[i].name, iter->ifa_name, sizeof(server->interfaces[i].name));
+		server->interfaces[i].enable = 0;
+		server->interfaces[i].cci    = 5;
+		printf("init interface: %s\n", server->interfaces[i].name);
+	}
+	
+	freeifaddrs(ifa);
+	
+	return 0;
+}
 
 int save_config(DSERVER * server, char * c_file)
 {
@@ -1238,6 +1266,7 @@ int main()
 	
 	if (-1 != load_config(temp_config, S_CONFIG_FILE))
 	{
+		init_interfaces(temp_config);
 		memcpy(&server, temp_config, sizeof(server));
 		save_config(&server, S_CONFIG_FILE);
 	}

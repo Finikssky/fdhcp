@@ -5,11 +5,38 @@
 #include "dleases.h"
 #include <pthread.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 
 #include "core.h"
 
-void *iface_loop (void * iface);
-void *manipulate( void *client );
+void * iface_loop ( void * iface );
+void * manipulate ( void * client );
+
+int get_iface_idx_by_name(char * ifname, DCLIENT * client);
+
+int init_interfaces(DCLIENT * client)
+{
+	struct ifaddrs * ifa;
+	struct ifaddrs * iter;
+	int i;
+	
+	getifaddrs (&ifa);
+	
+	for (i = 0, iter = ifa; iter != NULL && i < MAX_INTERFACES; i++, iter = iter->ifa_next)
+	{
+		if ( -1 != get_iface_idx_by_name(iter->ifa_name, client) ) continue;
+		if ( (iter->ifa_flags & IFF_POINTOPOINT) == IFF_POINTOPOINT ) continue;
+		if ( (iter->ifa_flags & IFF_LOOPBACK) == IFF_LOOPBACK ) continue;
+		
+		strncpy(client->interfaces[i].name, iter->ifa_name, sizeof(client->interfaces[i].name));
+		client->interfaces[i].enable = 0;
+		printf("init interface: %s\n", client->interfaces[i].name);
+	}
+	
+	freeifaddrs(ifa);
+	
+	return 0;
+}
 
 int enable_interface(dclient_interface_t * interface, int idx)
 {
@@ -286,12 +313,9 @@ int main()
 
 	srand(time(NULL));
 
-	strcpy(client.interfaces[0].name, "eth0");
-	strcpy(client.interfaces[1].name, "eth1"); //Функция получения интерфейсов
-	strcpy(client.interfaces[2].name, "eth1:0");
+	init_interfaces(&client);
 
 	pthread_create(&manipulate_tid, NULL, manipulate, (void *)&client);
-
 	pthread_join(manipulate_tid, NULL);
 	
 	return 0;
