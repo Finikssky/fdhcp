@@ -16,11 +16,11 @@
 #define PTABLE_COUNT   9
 #define S_CONFIG_FILE "dsc.conf"
 
-void * iface_loop (void * iface);
-void * manipulate (void * server);
-void * s_recvDHCP(void * arg);
-void * s_replyDHCP(void * arg);
-void * sm(void * arg);
+void * iface_loop  (void * iface);
+void * manipulate  (void * server);
+void * s_recvDHCP  (void * arg);
+void * s_replyDHCP (void * arg);
+void * sm (void * arg);
 
 dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args);
 dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char * args);
@@ -1268,9 +1268,12 @@ int main()
 	{
 		init_interfaces(temp_config);
 		memcpy(&server, temp_config, sizeof(server));
-		save_config(&server, S_CONFIG_FILE);
 	}
+	else
+		init_interfaces(&server);
+		
 	free(temp_config);
+	save_config(&server, S_CONFIG_FILE);
 	
 	int i;
 	for (i = 0; i < MAX_INTERFACES; i++)

@@ -9,6 +9,8 @@
 
 #include "core.h"
 
+#define C_CONFIG_FILE "dcc.conf"
+
 void * iface_loop ( void * iface );
 void * manipulate ( void * client );
 
@@ -35,6 +37,88 @@ int init_interfaces(DCLIENT * client)
 	
 	freeifaddrs(ifa);
 	
+	return 0;
+}
+
+int save_config(DCLIENT * client, char * c_file)
+{
+	FILE * fd = fopen(c_file, "w");
+	if (fd == NULL) return -1;
+	int i;
+	
+	for (i = 0; i < MAX_INTERFACES; i++ )
+	{
+		dclient_interface_t * interface = &client->interfaces[i];
+		if (strlen(interface->name) != 0)
+		{
+			fprintf(fd, "interface: %s\n", interface->name);
+			
+			fprintf(fd, "    %s\n", interface->enable == 1 ? "enable" : "disable");
+			
+			//dclient_if_settings_t * settings = &interface->settings;
+			
+			fprintf(fd, "end_interface\n");
+		}
+	}
+		
+	fclose(fd);
+	return 0;
+}
+
+int load_interface (FILE * fd, dclient_interface_t * interface)
+{
+	char com[128]  = "";
+	char args[128] = "";
+	while (EOF != t_gets(fd, ':', com, sizeof(com), 0))
+	{
+		if (0 == strcmp(com, "enable"))
+		{
+			interface->enable = 1;
+		}
+		else if (0 == strcmp(com, "disable"))
+		{
+			interface->enable = 0;
+		}
+		else if (0 == strcmp(com, "end_interface"))
+		{
+			return 0;
+		}
+		memset(com, 0, sizeof(com));
+		memset(args, 0, sizeof(args));
+	}
+	
+	return -1;
+}
+
+int load_config(DCLIENT * client, char * c_file)
+{
+	FILE * fd = fopen(c_file, "r");
+	if (fd == NULL) return -1;
+	int i;
+	char com[128] = "";
+		
+	for (i = 0; i < MAX_INTERFACES; i++ )
+	{
+		dclient_interface_t * interface = &client->interfaces[i];
+		
+		while (EOF != t_gets(fd, ':', com, sizeof(com), 0))
+		{
+			if (0 == strcmp(com, "interface"))
+			{
+				memset(interface, 0 ,sizeof(*interface));
+				t_gets(fd, 0, interface->name, sizeof(interface->name), 0);
+				if (-1 == load_interface(fd, interface)) 
+				{
+					printf("parse config error: can't reach end of interface");
+					return -1;
+				}
+				break;
+			}
+			memset(com, 0, sizeof(com));
+		}
+	}
+		
+	fclose(fd);
 	return 0;
 }
 
@@ -185,6 +269,10 @@ int execute_DCTP_command(DCTP_COMMAND * in, DCLIENT * client)
 			if (-1 == check_password(client, in->arg)) return -1;
 			break;
 			
+		case DCTP_SAVE_CONFIG:
+			if (-1 == save_config(client, C_CONFIG_FILE)) return -1;
+			break;
+			
 		default:
 			printf("unknown command!\n");
 			return -1;
@@ -312,8 +400,31 @@ int main()
 	memset(&client, 0, sizeof(client));
 
 	srand(time(NULL));
-
-	init_interfaces(&client);
+	//LOADING CONFIGURATION
+	DCLIENT * temp_config = (DCLIENT * )malloc(sizeof(*temp_config));
+	memset(temp_config, 0, sizeof(*temp_config));
+	
+	if (-1 != load_config(temp_config, C_CONFIG_FILE))
+	{
+		init_interfaces(temp_config);
+		memcpy(&client, temp_config, sizeof(client));
+	}
+	else
+		init_interfaces(&client);
+		
+	free(temp_config);
+	save_config(&client, C_CONFIG_FILE);
+	
+	int i;
+	for (i = 0; i < MAX_INTERFACES; i++)
+	{	
+		dclient_interface_t * interface = &client.interfaces[i];
+		if ( strlen(interface->name) == 0 ) continue;
+		if ( interface->enable == 0 ) continue;
+		if ( -1 == enable_interface(interface, i) ) return -1;
+	}
+	
+	//END LOADING CONFIGURATION
 
 	pthread_create(&manipulate_tid, NULL, manipulate, (void *)&client);
 	pthread_join(manipulate_tid, NULL);
