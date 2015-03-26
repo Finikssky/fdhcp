@@ -30,15 +30,16 @@ int get_stype(int stat, struct qmessage mess)
 	if (stat == START)
 	{
 		if (dhc->options[6] == DHCPDISCOVER) return DHCPDISCOVER;
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == OFFER)
 	{
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == ANSWER)
 	{
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
+		if (dhc->options[6] == DHCPDECLINE)  return DHCPDECLINE;
 	}
 
 	add_log("Validation fail! Unknown signal!");
@@ -55,7 +56,7 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 
 	add_log("Changing state...");
 
-//Получаем нужный контекст клиента
+	//Получаем нужный контекст клиента
 	printf("SCOUNT %d\n", *scount);
 	num = search_sid(xid, *scount, ses);
 
@@ -67,11 +68,11 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 
 		num = *scount - 1;
 		memset(&((*ses)[num]), 0, sizeof(struct session));
-		(*ses)[num].sid = xid;
+		(*ses)[num].sid   = xid;
 		(*ses)[num].state = START;
 	}
 
-	gettimeofday(&now,NULL);
+	gettimeofday(&now, NULL);
 
 //Проводим валидацию сообщения с учетом текущего состояния
 	int signal = get_stype((*ses)[num].state, mess);
@@ -80,26 +81,28 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 //В зависимости от текущего состояния и результата валидации совершаем переход
 //по конечному автомату в следующее состояние
 
-	for(i = 0; i < ptable_count; i++)
+	for (i = 0; i < ptable_count; i++)
 	{
-		if((*ses)[num].state == ptable[i].currstate && signal == ptable[i].in)
+		if ((*ses)[num].state == ptable[i].currstate && signal == ptable[i].in)
 		{
 			printf("change state %d to %d\n", ptable[i].currstate, ptable[i].nextstate);
 			(*ses)[num].state = ptable[i].nextstate; //Меняем состояние
-			(*ses)[num].ctime = now.tv_sec; //Устанавливаем время последней смены состояния
-			mess.delay = (*ses)[num].state; //В сообщение добавляем текущее состояние для TX
-			(*ses)[num].mess = mess; //Запоминаем последнее сообщение
+			(*ses)[num].ctime = now.tv_sec; 		 //Устанавливаем время последней смены состояния
+			mess.delay 		  = (*ses)[num].state;   //В сообщение добавляем текущее состояние для TX
+			(*ses)[num].mess  = mess; 				 //Запоминаем последнее сообщение
 			break;
 		}	
 	}
 
-//Взависимости от текущего состояния автомата выполняем соответствующую функцию
-	for(i = 0; i < ptable_count; i++)
+	//Взависимости от текущего состояния автомата выполняем соответствующую функцию
+	for (i = 0; i < ptable_count; i++)
 	{
-		if((*ses)[num].state == ptable[i].currstate) 
+		if ((*ses)[num].state == ptable[i].currstate) 
 		{
 			printf("state %d\n", (*ses)[num].state);
-			if (-1 == ptable[i].fun((*ses)[num].mess.text, interface)) return -1;
+			long status = ptable[i].fun((*ses)[num].mess.text, interface);
+			if ( -1 == status ) return -1;
+			(*ses)[num].ltime = status;
 			add_log("State changed!");
 			break;
 		}
@@ -108,15 +111,15 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 	return num;
 }
 
-void clear_context(struct session **ses, int *scount, void * interface)
+void clear_context(struct session **ses, int * scount, void * interface)
 {
-	struct session *new = NULL;
+	struct session * new = NULL;
 	int i,j;
 	int newscount = 0;
 	struct timeval now;
 
-        //Копируем все действительные контексты во временный массив
-	for(i=0; i < *scount;i++)
+	//Копируем все действительные контексты во временный массив
+	for (i = 0; i < *scount;i++)
 	{
 		if ((*ses)[i].state != CLOSE) 
 		{
@@ -127,36 +130,36 @@ void clear_context(struct session **ses, int *scount, void * interface)
 	
 	//Очищаем старый массив и копируем временный в него
 	*scount = newscount;
-	*ses = realloc(*ses,(*scount)*sizeof(struct session));
+	*ses    = realloc(*ses,(*scount)*sizeof(struct session));
 	memset(*ses, 0, (*scount) * sizeof(struct session));
-	memcpy(*ses, new, (*scount)*sizeof(struct session));
+	memcpy(*ses, new, (*scount) * sizeof(struct session));
 
 	//Если время ожидания перехода истекло
-	for(i = 0; i < *scount; i++)
+	for (i = 0; i < *scount; i++)
 	{
 		gettimeofday(&now,NULL);
-		switch((*ses)[i].state)
+		switch ((*ses)[i].state)
 		{
 			case OFFER:
-				if((*ses)[i].ctime + TIMEPAUSE < now.tv_sec) (*ses)[i].state = CLOSE;
+				if ((*ses)[i].ctime + TIMEPAUSE < now.tv_sec) (*ses)[i].state = CLOSE;
 				break;
 				
 			case ANSWER:
-				if((*ses)[i].ctime + get_lease_time() + TIMEPAUSE < now.tv_sec) 
+				if ((*ses)[i].ctime + (*ses)[i].ltime + TIMEPAUSE < now.tv_sec) 
 				{
 					(*ses)[i].state = NAK;
 					(*ses)[i].mess.delay = NAK;
 					
-					for(j = 0;j < ptable_count; j++)
+					for (j = 0; j < ptable_count; j++)
 					{
-						if((*ses)[i].state == ptable[j].currstate) 
+						if ((*ses)[i].state == ptable[j].currstate) 
 						{
 							ptable[j].fun((*ses)[i].mess.text, interface);
 							break;
-                		}
+						}
 					}
 					dserver_interface_t * ifs = (dserver_interface_t *)interface;
-					pushmessage((*ses)[i].mess, ifs->c_idx*2 + 1);
+					pushmessage((*ses)[i].mess, ifs->c_idx * 2 + 1);
 				}
 				break;
 				

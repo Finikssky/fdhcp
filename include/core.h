@@ -84,8 +84,8 @@ typedef struct {
 } DSERVER;
 
 //CLIENT
-typedef struct {
-	int  dhcp6_enable;
+typedef struct 
+{
 	char server_address[INET_ADDRSTRLEN];
 	int  server_port;
 	int  client_port;

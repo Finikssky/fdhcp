@@ -8,18 +8,19 @@
 #include <pthread.h>
 #include <limits.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 
 #include "core.h"
 #include "common.h"
 
-#define PTABLE_COUNT   8
+#define PTABLE_COUNT   9
 #define S_CONFIG_FILE "dsc.conf"
 
-void * iface_loop (void * iface);
-void * manipulate (void * server);
-void * s_recvDHCP(void * arg);
-void * s_replyDHCP(void * arg);
-void * sm(void * arg);
+void * iface_loop  (void * iface);
+void * manipulate  (void * server);
+void * s_recvDHCP  (void * arg);
+void * s_replyDHCP (void * arg);
+void * sm (void * arg);
 
 dserver_subnet_t * search_subnet(dserver_interface_t * interface, char * args);
 dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char * args);
@@ -30,6 +31,33 @@ int set_host_name_on_subnet(dserver_subnet_t * subnet, char * args);
 int set_domain_name_on_subnet(dserver_subnet_t * subnet, char * args);
 
 long get_one_num(char * args);
+
+int get_iface_idx_by_name(char * ifname, DSERVER * server);
+
+int init_interfaces(DSERVER * server)
+{
+	struct ifaddrs * ifa;
+	struct ifaddrs * iter;
+	int i;
+	
+	getifaddrs (&ifa);
+	
+	for (i = 0, iter = ifa; iter != NULL && i < MAX_INTERFACES; i++, iter = iter->ifa_next)
+	{
+		if ( -1 != get_iface_idx_by_name(iter->ifa_name, server) ) continue;
+		if ( (iter->ifa_flags & IFF_POINTOPOINT) == IFF_POINTOPOINT ) continue;
+		if ( (iter->ifa_flags & IFF_LOOPBACK) == IFF_LOOPBACK ) continue;
+		
+		strncpy(server->interfaces[i].name, iter->ifa_name, sizeof(server->interfaces[i].name));
+		server->interfaces[i].enable = 0;
+		server->interfaces[i].cci    = 5;
+		printf("init interface: %s\n", server->interfaces[i].name);
+	}
+	
+	freeifaddrs(ifa);
+	
+	return 0;
+}
 
 int save_config(DSERVER * server, char * c_file)
 {
@@ -73,7 +101,7 @@ int save_config(DSERVER * server, char * c_file)
 					char start_address[INET_ADDRSTRLEN];
 					char end_address[INET_ADDRSTRLEN];
 					inet_ntop(AF_INET, &pool->range.start_address, start_address, sizeof(start_address));
-					inet_ntop(AF_INET, &pool->range.start_address, end_address, sizeof(end_address));
+					inet_ntop(AF_INET, &pool->range.end_address, end_address, sizeof(end_address));
 					fprintf(fd, "        %s: %s-%s\n", "range", start_address, end_address);
 					pool = pool->next;
 				}
@@ -269,7 +297,7 @@ int send_nak(void * buffer, void * arg)
 	unsigned char macb[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 	dserver_interface_t * interface = (dserver_interface_t *) arg;
 	
-add_log("Sending DHCPNAK..");
+	add_log("Sending DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
 
@@ -278,7 +306,7 @@ add_log("Sending DHCPNAK..");
 	create_ipheader(buffer, get_iface_ip(interface->name), INADDR_BROADCAST);
 	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
-add_log("DHCPNAK sended!");
+	add_log("DHCPNAK sended!");
 	return 0;
 }
 
@@ -293,6 +321,7 @@ int send_answer(void * buffer, void * arg)
 	add_log("Sending DHCPACK/DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
+	long ltime = 0;
 	
 	//Проверяем доступен ли адрес
 	int result = get_proof(dhc, &dhc->yiaddr.s_addr);
@@ -300,9 +329,10 @@ int send_answer(void * buffer, void * arg)
 	{	
 		//В случае положительного ответа отправляем АСК
 		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
-		if (-1 == create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface)) return -1;
+		ltime = create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface);
+		if (ltime == -1) return -1;
 		create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-		s_add_lease(dhc->yiaddr.s_addr, get_lease_time(), dhc->chaddr, NULL); //TODO refactoring lease_time
+		s_add_lease(interface, dhc->yiaddr.s_addr, dhc->chaddr, ltime); //TODO refactoring lease_time
 	}
 	else if (result == 0)  
 	{	
@@ -316,7 +346,7 @@ int send_answer(void * buffer, void * arg)
 	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
 	add_log("DHCPACK/DHCPNAK sended!");
-	return 0;
+	return ltime;
 }
 
 void * s_recvDHCP(void * arg)
@@ -430,14 +460,14 @@ void * s_fsmDHCP(void * arg)
 int enable_interface(dserver_interface_t * interface, int idx)
 {
 	interface->enable = 1;
-	interface->c_idx = idx;
+	interface->c_idx  = idx;
 	interface->listen_sock = init_packet_sock(interface->name, ETH_P_ALL); //? ETH_P_ALL
 	interface->send_sock   = init_packet_sock(interface->name, ETH_P_IP); 
 	
 	if (interface->listen_sock == -1 || interface->send_sock == -1) return -1;
 	
 	int result;
-
+	
 	result = pthread_create(&interface->listen, NULL, s_recvDHCP, (void *)interface); //Создание потока приема
 	if (result != 0)
 	{
@@ -533,9 +563,10 @@ void init_ptable(int size)
 	ptable[4].currstate = OFFER;  ptable[4].in = UNKNOWN;      ptable[4].nextstate = CLOSE;  ptable[4].fun = send_offer;
 
 	ptable[5].currstate = ANSWER; ptable[5].in = DHCPREQUEST;  ptable[5].nextstate = ANSWER; ptable[5].fun = send_answer;
-	ptable[6].currstate = ANSWER; ptable[6].in = UNKNOWN;      ptable[6].nextstate = NAK;    ptable[6].fun = send_answer;
+	ptable[6].currstate = ANSWER; ptable[6].in = DHCPDECLINE;  ptable[6].nextstate = NAK;    ptable[6].fun = send_answer;
+	ptable[7].currstate = ANSWER; ptable[7].in = UNKNOWN;      ptable[7].nextstate = NAK;    ptable[7].fun = send_answer;
 
-	ptable[7].currstate = NAK;    ptable[7].in = 0;            ptable[7].nextstate = CLOSE;  ptable[7].fun = send_nak;
+	ptable[8].currstate = NAK;    ptable[8].in = 0;            ptable[8].nextstate = CLOSE;  ptable[8].fun = send_nak;
 }
 
 void * sm(void * arg)
@@ -592,12 +623,9 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 		dserver_subnet_t * prev = subnet->prev;
 		dserver_subnet_t * next = subnet->next;
 
-		//printf("subn: %p subs:%p prev: %p next: %p\n", subnet, interface->settings.subnets, prev, next);
-
 		if (subnet == interface->settings.subnets)
 		{
 			free(interface->settings.subnets);
-			//printip(interface->settings.subnets->address);
 			interface->settings.subnets = next;
 			if (next)
 				interface->settings.subnets->prev = NULL;
@@ -609,7 +637,6 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 			if (next)
 				next->prev = subnet->prev;
 			free(subnet);
-			//printip(subnet->address);
 		}
 
 		return 0;
@@ -621,8 +648,8 @@ int del_subnet_from_interface(dserver_interface_t * interface, char * args)
 dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char * args)
 { //todo refactoring
 	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
-	dserver_subnet_t * temp = NULL;
+	dserver_subnet_t      * subnet   = settings->subnets;
+	dserver_subnet_t      * temp     = NULL;
 	
 	char * address;
 	char * mask;
@@ -634,7 +661,7 @@ dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char
 	}
 	
 	address = args;
-	mask = strchr(args, ' ');
+	mask    = strchr(args, ' ');
 	if (mask == NULL)
 	{
 		printf("low args to add subnet, please add mask\n");
@@ -663,27 +690,27 @@ dserver_subnet_t * add_subnet_to_interface(dserver_interface_t * interface, char
 			printf("Subnet %s/%s exist!\n", address, mask);
 			return NULL;
 		}
-		temp = subnet;
+		temp   = subnet;
 		subnet = subnet->next;
 		printf("%d go next\n", temp->address);
 	}
 	
 	subnet = malloc(sizeof(dserver_subnet_t));
 	memset(subnet, 0, sizeof(*subnet));
-	subnet->address = a_sa.sin_addr.s_addr;
-	subnet->netmask = m_sa.sin_addr.s_addr;
+	subnet->address        = a_sa.sin_addr.s_addr;
+	subnet->netmask        = m_sa.sin_addr.s_addr;
 	subnet->free_addresses = 0;
-	subnet->lease_time = 0; 
+	subnet->lease_time     = 0; 
 
 	if (settings->subnets == NULL)
 	{
 		settings->subnets = subnet;
-		subnet->prev = NULL;
-		subnet->next = NULL;
+		subnet->prev      = NULL;
+		subnet->next      = NULL;
 	}
 	else
 	{
-		temp->next = subnet;
+		temp->next   = subnet;
 		subnet->next = NULL;
 		subnet->prev = temp;
 	}
@@ -881,7 +908,7 @@ int add_dns_to_subnet(dserver_subnet_t * subnet, char * address)
 
 int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 {
-	dserver_dns_t * dns = subnet->dns_servers;
+	dserver_dns_t * dns  = subnet->dns_servers;
 	dserver_dns_t * temp = NULL;
 	
 	if (address == NULL) return -1;
@@ -915,7 +942,7 @@ int del_dns_from_subnet(dserver_subnet_t * subnet, char * address)
 int add_router_to_subnet(dserver_subnet_t * subnet, char * address)
 {
 	dserver_router_t * router = subnet->routers;
-	dserver_router_t * temp = NULL;
+	dserver_router_t * temp   = NULL;
 	
 	if (address == NULL) return -1;
 	
@@ -934,7 +961,7 @@ int add_router_to_subnet(dserver_subnet_t * subnet, char * address)
 		{
 			printf("router is exist");
 		}
-		temp = router;
+		temp   = router;
 		router = router->next;
 	}
 	
@@ -990,8 +1017,10 @@ int set_domain_name_on_subnet(dserver_subnet_t * subnet, char * args)
 {
 	if ( args == NULL ) return -1;
 	if ( strlen(args) >= sizeof(subnet->domain_name) ) return -1;
+	
 	strncpy(subnet->domain_name, args, sizeof(subnet->domain_name));
 	printf("set domain name: %s\n", args);
+	
 	return 0;
 }
 
@@ -999,17 +1028,18 @@ int set_host_name_on_subnet(dserver_subnet_t * subnet, char * args)
 {
 	if ( args == NULL ) return -1;
 	if ( strlen(args) >= sizeof(subnet->host_name) ) return -1;
+	
 	strncpy(subnet->host_name, args, sizeof(subnet->host_name));
 	printf("set host name: %s\n", args);
+	
 	return 0;
 }
 
 long get_one_num(char * args)
 {
 	if (args == NULL || strlen(args) == 0) return -1;
-	if (strchr(args, ' ')) return -1;
-	
-	char *endptr;
+		
+	char * endptr;
 	long ret;
 
 	errno = 0;
@@ -1034,7 +1064,9 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 {
 	printf("<%s>\n", __FUNCTION__);
 	char ifname[IFNAMELEN];
+	
 	DCTP_cmd_code_t code = parse_DCTP_command(in, ifname);
+	if (code == UNDEF_COMMAND) return -1;
 	int idx = -1;
 	
 	printf("%s: %s\n", in->name, in->arg);
@@ -1234,10 +1266,14 @@ int main()
 	
 	if (-1 != load_config(temp_config, S_CONFIG_FILE))
 	{
+		init_interfaces(temp_config);
 		memcpy(&server, temp_config, sizeof(server));
-		save_config(&server, S_CONFIG_FILE);
 	}
+	else
+		init_interfaces(&server);
+		
 	free(temp_config);
+	save_config(&server, S_CONFIG_FILE);
 	
 	int i;
 	for (i = 0; i < MAX_INTERFACES; i++)

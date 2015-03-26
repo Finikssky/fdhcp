@@ -11,7 +11,7 @@ int recv_timeout_DCTP(int sock, void * buf, int timeout, struct sockaddr * sende
 		
 	FD_ZERO(&rdfs);
 	FD_SET(sock, &rdfs);
-	tv.tv_sec = timeout;
+	tv.tv_sec  = timeout;
 	tv.tv_usec = 0;
 	ret = select(sock + 1, &rdfs, NULL, NULL, &tv);
 		
@@ -245,7 +245,7 @@ DCTP_cmd_code_t parse_DCTP_command (DCTP_COMMAND * in, char * ifname )
 	}
 	printf("<%s> iface: %s option: %s\n", __FUNCTION__, ifname, option);
 	
-	for ( i = 0; strlen(DCTP_cmd_list[i].text) != 0; i++)
+	for ( i = 0; strlen(DCTP_cmd_list[i].text) != 0; i++ )
 		if (!strcmp(option, DCTP_cmd_list[i].text))
 			return DCTP_cmd_list[i].code;
 		
