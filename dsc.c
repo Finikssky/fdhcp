@@ -1257,8 +1257,7 @@ int main()
 
 	srand(time(NULL));
 	init_ptable(PTABLE_COUNT);
-	initres(2 * sizeof(server.interfaces));
-	initsync(2 * sizeof(server.interfaces));
+	init_queues(2 * sizeof(server.interfaces));
 	
 	//LOADING CONFIGURATION
 	DSERVER * temp_config = (DSERVER * )malloc(sizeof(*temp_config));
@@ -1291,8 +1290,7 @@ int main()
 
 	pthread_join(manipulate_tid, NULL);
 
-	uninitres(2 * sizeof(server.interfaces));
-	uninitsync(2 * sizeof(server.interfaces));
+	uninit_queues(2 * sizeof(server.interfaces));
 
 	return 0;
 }
