@@ -157,9 +157,6 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 		if (bytes < DHCP_FIXED_NON_UDP) continue;
 		//printf("<%s> recv %d bytes\n", __FUNCTION__, bytes);
 		dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
-
-		int sip;
-		get_lease(iface, NULL, (unsigned char*)&sip);
 	 	 	
 		if (dhc->xid == transid && dhc->op == 2)  
 		{
@@ -167,6 +164,9 @@ int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
 			if (type == DHCPOFFER) break;
 			if (type == DHCPACK ) 
 			{	
+				int sip;
+				get_lease(iface, NULL, (unsigned char*)&sip);
+				
 				if (-1 == get_option(dhc, 54, &d_sip, sizeof(d_sip))) continue;
 				if (d_sip != sip && d_sip != get_iface_ip(iface)) continue;
  
