@@ -1,9 +1,9 @@
 #include "queue.h"
 
-void init_queues(int count)
+queue_t * init_queues(int count)
 {
 	int i;
-	queues = malloc(count * sizeof(queue_t)); //Инициализация массива очередей
+	queue_t * queues = malloc(count * sizeof(queue_t)); //Инициализация массива очередей
 
 	srand(time(NULL)); //Инициируем рандом
 
@@ -15,6 +15,8 @@ void init_queues(int count)
 		sem_init(&(queues[i].semid), 0, 0);
 		pthread_mutex_init(&(queues[i].mutex), NULL);
 	}
+	
+	return queues;
 }
 
 int free_element(qelement_t * element)
@@ -23,11 +25,12 @@ int free_element(qelement_t * element)
 	if (element->next != NULL) 
 		free_element(element->next);
 	
+	free(element->data);
 	free(element);
 	return 0;
 }
 
-void uninit_queues(int count)
+void uninit_queues(queue_t * queues, int count)
 {
 	int i;
 

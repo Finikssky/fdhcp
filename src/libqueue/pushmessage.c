@@ -1,6 +1,6 @@
 #include "queue.h"
 
-int pushmessage(struct qmessage in, int qnum)
+int pushmessage(queue_t * queues, int qnum, void * data, size_t size)
 {
 	queue_t * queue   = &queues[qnum];
 	
@@ -10,8 +10,10 @@ int pushmessage(struct qmessage in, int qnum)
 	
 	if (temp == NULL) return -1;
 	
-	temp->next = NULL;
-	temp->data = in; 
+	temp->next      = NULL;
+	temp->data      = malloc(size); 
+	temp->data_size = size;
+	memcpy(temp->data, data, size);
 	
 	if (queue->head == NULL)
 	{

@@ -1,8 +1,7 @@
 #include "queue.h"
 
-int deletehead(int qnum)
+int deletehead(queue_t * queue)
 {
-	queue_t * queue = &queues[qnum];
 	qelement_t * p = queue->head;
 	
 	if (p == NULL) return -1;
@@ -17,6 +16,7 @@ int deletehead(int qnum)
 		queue->tail = NULL;
 	}
 	
+	free(p->data);
 	free(p);
 	
 	return 0;
