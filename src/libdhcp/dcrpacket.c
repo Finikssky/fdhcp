@@ -146,6 +146,7 @@ int create_offer(void * iface, char * options, u_int32_t * y_addr, long * ltime)
 	while (subnet != NULL)
 	{
 		if (subnet->free_addresses != 0) break;
+		printf("no free addresses in subnet\n");
 		subnet = subnet->next;
 	}
 	
@@ -204,12 +205,6 @@ int create_ack( void * iface, char * options, u_int32_t * y_addr , long * ltime)
 		return -1;
 	}
 	
-	if (subnet == NULL) 
-	{	
-		printf("No subnet to lease!\n");
-		return -1;
-	}
-		
 	cnt = create_server_options(options, subnet, interface, ltime);
 	if ( -1 == cnt ) return -1;
 	return (cnt + 7);

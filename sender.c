@@ -88,6 +88,8 @@ int comline(char * type)
 		my_gets(temp, sizeof(temp));
 		if (strstr(temp, "save_config"))
 			snprintf(command.name, sizeof(command.name), "dctp_save_config");
+		else if (strstr(temp, "stop"))
+			snprintf(command.name, sizeof(command.name), "dctp_stop");
 		else
 			snprintf(command.name, sizeof(command.name), "%s %s_%s", IFACE, strstr(type,"server") ? "sr" : "cl", temp);
 		

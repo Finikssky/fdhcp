@@ -1,17 +1,20 @@
 #include "queue.h"
 
-struct qmessage popmessage(int qnum){
-struct qmessage ret;
+int popmessage(queue_t * queues, int qnum, void * data, size_t size)
+{
+	queue_t * queue   = &queues[qnum];
 
-	sem_wait(&semid[qnum]);               //Ожидаем появления сообщения
+	sem_wait(&queue->semid);               //Ожидаем появления сообщения
+	pthread_mutex_lock(&queue->mutex);     //Блокируем
 	
-	pthread_mutex_lock(&mutex[qnum]);     //Блокируем
+	if (queue->head == NULL) return -1;
 	
-	ret=qm[qnum][0];		      //Получаем голову очереди
+	memset( data, 0, size );
+	memcpy( data, queue->head->data, size < queue->head->data_size ? size : queue->head->data_size );      //Получаем голову очереди
 	
-	deletehead(qnum);		      //Удаляем голову из очереди
+	deletehead(queue);		      //Удаляем голову из очереди
 	
-	pthread_mutex_unlock(&mutex[qnum]);   //Разблокируем
+	pthread_mutex_unlock(&queue->mutex);   //Разблокируем
 
-return ret;
+	return  0;
 }

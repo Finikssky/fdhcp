@@ -6,6 +6,13 @@
 #define MAX_INTERFACES 32
 #define IFNAMELEN      32
 
+typedef struct qmessage
+{
+	unsigned char  text[2048];
+	unsigned char  iface[50];  //Убрать попозже
+	int            delay;
+} qmessage_t;
+
 //SERVER
 
 struct dserver_pool_s
@@ -69,11 +76,12 @@ typedef struct {
 	int                   listen_sock; //нужно ли их 2
 	int                   send_sock;
 	int                   cci;
-	int 				  c_idx;
+	int                   c_idx;
 	pthread_t             listen;
 	pthread_t             sender;
 	pthread_t             fsm;
 	pthread_t             fsm_timer;
+	queue_t             * qtransport;
 	dserver_if_settings_t settings;
 } dserver_interface_t;
 

@@ -159,7 +159,7 @@ void clear_context(struct session **ses, int * scount, void * interface)
 						}
 					}
 					dserver_interface_t * ifs = (dserver_interface_t *)interface;
-					pushmessage((*ses)[i].mess, ifs->c_idx * 2 + 1);
+					pushmessage( ifs->qtransport, 1, &((*ses)[i].mess), sizeof((*ses)[i].mess) );
 				}
 				break;
 				

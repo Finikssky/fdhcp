@@ -382,7 +382,7 @@ void * s_recvDHCP(void * arg)
 			printf("I think this is dhcp-request\n");
 			memcpy(mess.text, buffer, sizeof(buffer));
 			mess.delay = STEP;
-			pushmessage(mess, 2 * interface->c_idx);				//Помещаем в очередь
+			pushmessage(interface->qtransport, 0, &mess, sizeof(mess));				//Помещаем в очередь
 		}
 	}
 }
@@ -390,14 +390,14 @@ void * s_recvDHCP(void * arg)
 void * s_replyDHCP(void * arg) 
 {
 	dserver_interface_t * interface = (dserver_interface_t *)arg;
-	struct qmessage mess;
+	qmessage_t mess;
 
 	add_log("Start server replying thread");
 
 	while(1)
 	{
 		add_log("SEND_SERVER_REPLY");
-		mess = popmessage(2 * interface->c_idx + 1);
+		popmessage(interface->qtransport, 1, &mess, sizeof(mess));
 		sendDHCP(interface->send_sock, interface->name, (void*)mess.text, 0);
 	}
 }
@@ -409,7 +409,7 @@ void * s_fsmDHCP(void * arg)
 	dserver_interface_t * interface = (dserver_interface_t *)arg;
 	int scount  = 0;
 	int i = 0;
-	struct qmessage mess;
+	qmessage_t mess;
 	struct session *ses;
 
 	struct timer t = { interface->cci, sm, (void *)interface };
@@ -422,16 +422,16 @@ void * s_fsmDHCP(void * arg)
 	
 	while(1)
 	{
-		mess = popmessage(2 * interface->c_idx);
+		popmessage(interface->qtransport, 0, &mess, sizeof(mess));
 		
 		if (mess.delay == STEP) 
 		{
-			struct dhcp_packet *dhc = (struct dhcp_packet *) (mess.text + FULLHEAD_LEN);
+			struct dhcp_packet * dhc = (struct dhcp_packet *) (mess.text + FULLHEAD_LEN);
 			//Делаем шаг автомата
 			int num = change_state(dhc->xid, dhc->options[6], mess, &ses, &scount, (void *) interface);
 			if (num == -1) continue;
 			//Пересылаем сообщение
-			if (ses[num].state != CLOSE) pushmessage(ses[num].mess, 2 * interface->c_idx + 1);
+			if (ses[num].state != CLOSE) pushmessage(interface->qtransport, 1, &(ses[num].mess), sizeof(ses[num].mess));
 		}
 		if (mess.delay == TIME)  
 		{	
@@ -463,6 +463,7 @@ int enable_interface(dserver_interface_t * interface, int idx)
 	interface->c_idx  = idx;
 	interface->listen_sock = init_packet_sock(interface->name, ETH_P_ALL); //? ETH_P_ALL
 	interface->send_sock   = init_packet_sock(interface->name, ETH_P_IP); 
+	interface->qtransport  = init_queues(2);
 	
 	if (interface->listen_sock == -1 || interface->send_sock == -1) return -1;
 	
@@ -531,7 +532,7 @@ int disable_interface(dserver_interface_t * interface, int idx)
 	
 	struct qmessage mess;
 	mess.delay = DISABLE;
-	pushmessage(mess, 2 * interface->c_idx);
+	pushmessage(interface->qtransport, 0, &mess, sizeof(mess));
 	
 	void * res;
 	if (0 != pthread_join(interface->fsm, &res)) return -1;
@@ -545,6 +546,7 @@ int disable_interface(dserver_interface_t * interface, int idx)
 	interface->enable = 0;
 	close(interface->listen_sock);
 	close(interface->send_sock);
+	uninit_queues(interface->qtransport, 2);
 		
 	printf("IFACE %s DISABLED!\n", interface->name);
 	return 0;
@@ -573,9 +575,9 @@ void * sm(void * arg)
 {
 	dserver_interface_t * interface = (dserver_interface_t *)arg;
 
-	struct qmessage mess;
+	qmessage_t mess;
 	mess.delay = TIME;
-	pushmessage(mess, 2 * interface->c_idx);
+	pushmessage(interface->qtransport, 0, &mess, sizeof(mess));
 	
 	return NULL;
 }
@@ -1221,6 +1223,9 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 			if (-1 == save_config(server, S_CONFIG_FILE)) return -1;
 			break;
 			
+		case DCTP_END_WORK:
+			return 1;
+			
 		default:
 			printf("Unknown command!\n");
 			return -1;
@@ -1231,6 +1236,7 @@ int execute_DCTP_command(DCTP_COMMAND * in, DSERVER * server)
 
 void * manipulate( void * server )
 {
+	DSERVER * caller = (DSERVER *)server;
 	int sock = init_DCTP_socket(DSR_DCTP_PORT); //TODO исправить а пока пускай висит на дефолтном
 	
 	while(1)
@@ -1240,10 +1246,26 @@ void * manipulate( void * server )
 		struct sockaddr_in sender;
 		
 		receive_DCTP_command(sock, &pack, &sender); //успевает ли отработать?
-		if (execute_DCTP_command(&pack.payload, (DSERVER*)server) == 0)
+		int exec_status = execute_DCTP_command(&pack.payload, caller);
+		if ( exec_status >= 0)
 			send_DCTP_REPLY(sock, &pack, DCTP_SUCCESS, &sender);
 		else
 			send_DCTP_REPLY(sock, &pack, DCTP_FAIL, &sender);
+			
+		if (exec_status == 1)
+		{
+			int i;
+			save_config(server, S_CONFIG_FILE);
+			for (i = 0; i < MAX_INTERFACES; i++)
+			{	
+				dserver_interface_t * interface = &caller->interfaces[i];
+				if ( strlen(interface->name) == 0 ) continue;
+				if ( interface->enable == 1 ) disable_interface(&caller->interfaces[i], i);
+				
+				//free interfaces
+			}
+			pthread_exit(NULL);
+		}
 	}
 	
 	release_DCTP_socket(sock);
@@ -1257,8 +1279,6 @@ int main()
 
 	srand(time(NULL));
 	init_ptable(PTABLE_COUNT);
-	initres(2 * sizeof(server.interfaces));
-	initsync(2 * sizeof(server.interfaces));
 	
 	//LOADING CONFIGURATION
 	DSERVER * temp_config = (DSERVER * )malloc(sizeof(*temp_config));
@@ -1290,9 +1310,6 @@ int main()
 	pthread_create(&manipulate_tid, NULL, manipulate, (void *)&server);
 
 	pthread_join(manipulate_tid, NULL);
-
-	uninitres(2 * sizeof(server.interfaces));
-	uninitsync(2 * sizeof(server.interfaces));
 
 	return 0;
 }
