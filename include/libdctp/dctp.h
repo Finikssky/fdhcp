@@ -6,7 +6,7 @@
 #define DCTP_DEBUG 0
 
 #define DCTP_COMMAND_MAX_LEN 128
-#define DCTP_ARG_MAX_LEN 64
+#define DCTP_ARG_MAX_LEN 128
 #define DCTP_REPLY_TIMEOUT 5
 
 #define DCTP_MSG_COMM 1
@@ -28,10 +28,19 @@ typedef enum {
 	SR_DEL_SUBNET,
 	SR_ADD_POOL,
 	SR_DEL_POOL,
+	SR_ADD_DNS,
+	SR_DEL_DNS,
+	SR_ADD_ROUTER,
+	SR_DEL_ROUTER,
+	SR_SET_LEASETIME,
+	SR_SET_HOST_NAME,
+	SR_SET_DOMAIN_NAME,
 	DCTP_CL_SYNC,
 	DCTP_SR_SYNC,
 	DCTP_PING,
 	DCTP_PASSWORD,
+	DCTP_SAVE_CONFIG,
+	DCTP_END_WORK,
 } DCTP_cmd_code_t;
 
 typedef struct{
@@ -52,13 +61,22 @@ DCTP_command_t DCTP_cmd_list[] = {
 	{ "sr_del_subnet",        SR_DEL_SUBNET }, 
 	{ "sr_add_pool",          SR_ADD_POOL }, 
 	{ "sr_del_pool",          SR_DEL_POOL },
+	{ "sr_add_dns",           SR_ADD_DNS }, 
+	{ "sr_del_dns",           SR_DEL_DNS },
+	{ "sr_add_router",        SR_ADD_ROUTER }, 
+	{ "sr_del_router",        SR_DEL_ROUTER },
+	{ "sr_set_leasetime",     SR_SET_LEASETIME},
+	{ "sr_set_host_name",     SR_SET_HOST_NAME},
+	{ "sr_set_domain_name",   SR_SET_DOMAIN_NAME},
 	
 	//--system--
 	{ "dctp_cl_sync",         DCTP_CL_SYNC },
 	{ "dctp_sr_sync",         DCTP_SR_SYNC },
 	{ "dctp_ping" ,           DCTP_PING },
 	{ "dctp_password" ,       DCTP_PASSWORD },
-	{ "",                   UNDEF_COMMAND},
+	{ "dctp_save_config",     DCTP_SAVE_CONFIG }, 
+	{ "dctp_stop",            DCTP_END_WORK },
+	{ "",                     UNDEF_COMMAND},
 };
 
 typedef enum

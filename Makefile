@@ -4,10 +4,15 @@ CFLAGS = -I./include/libqueue -I./include/libdhcp -I./include/libdctp -I./includ
 all: 
 	make -C src/
 	$(CC) $(CFLAGS) -o dcc dcc.c -L./libs -ldyndctp -ldyndhcp -ldynqueue -ldyncommon -lpthread
-	$(CC) $(CFLAGS) -g -o dsc dsc.c -L./libs -ldyndctp -ldyndhcp -ldynqueue -ldyntimer -ldyncommon -lpthread
+	$(CC) $(CFLAGS) -o dsc dsc.c -L./libs -ldyndctp -ldyndhcp -ldynqueue -ldyntimer -ldyncommon -lpthread
+
+debug:
+	make CFLAGS="$(CFLAGS) -g" all
+
 
 utils:
 	$(CC) $(CFLAGS) -o sender sender.c -L./libs -ldyndctp -ldyncommon
+	$(CC) $(CFLAGS) -o test_nagr dnagr.c -L./libs -ldyndhcp -ldynqueue -ldyncommon -lpthread
 
 clean: 
 	make -C src/ clean

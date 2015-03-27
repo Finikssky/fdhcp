@@ -1,7 +1,7 @@
 #include "dhioctl.h"
 
 //Печатаем  IP
-void printip(int ip)
+void printip(u_int32_t ip)
 {
 	printf("IP: %d.%d.%d.%d\n",
 	 ip & 0xff,
@@ -11,11 +11,12 @@ void printip(int ip)
 }
 
 //Печатаем MAC
-void printmac(unsigned char *mac)
+void printmac(unsigned char * mac)
 {
-printf("MAC: %x:%x:%x:%x:%x:%x\n", mac[0], mac[1],
-				   mac[2], mac[3],
-				   mac[4], mac[5]);
+	printf("MAC: %x:%x:%x:%x:%x:%x\n", 
+					mac[0], mac[1],
+					mac[2], mac[3],
+					mac[4], mac[5]);
 }
 
 //Добавляем сообщение в лог
@@ -23,98 +24,82 @@ void add_log(char * s)
 {
 	char filename[32];
 	sprintf(filename, "log_%d.txt", getpid());
+	
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	long sec = now.tv_sec;
+	
 	FILE *fd = fopen(filename, "a+");
-	fprintf(fd, "%s\n", s);
+	fprintf(fd, "[ %02ld:%02ld:%02ld ] %s\n", (sec / (60 * 24)) % 24 ,(sec / 60) % 60, sec % 60 , s);
 	fclose(fd);
 }
 
-//Получение адреса сервера из DHCP пакета
-int get_sip_from_pack(struct dhcp_packet *dhc)
+int nod(int a, int b)
 {
-	int i;
-	int ret = 0;
-	add_log("Get SIP OPTION from DHCP packet");
-
-//print_dhcp_options(dhc);
-
-	for(i=4; dhc->options[i]!=255 && i<DHCP_MAX_OPTION_LEN; i++)
+	while (a != 0 && b != 0)
 	{
-		if(dhc->options[i]==54) { ret=1;  break; }
+		if (a > b) 
+			a = a % b;
+		else
+			b = b % a;
 	}
 	
-	if (ret != 0) memcpy(&ret, dhc->options + i + 2, 4);
-
-	add_log("Succesful get SIP");
-	return ret;
+	return a + b;
 }
 
-//Печать всех опций DHCP пакета
-void print_dhcp_options(struct dhcp_packet *dhc)
+int is_char_option(int option)
 {
-	int i;
-	printf("DHCP OPTIONS\n");
-	
-	for(i = 0; i < DHCP_MIN_OPTION_LEN; i++)
+	switch (option)
 	{
-		printf("%d ",dhc->options[i]);
-		if(i%8 == 0 && i != 0) printf("\n"); 
+		case 12:
+		case 15:
+			return 1;
+		default:
+			return 0;
 	}
-
+	return 0;
 }
 
-//Получение запрашиваемого адреса из DHCP пакета
-int get_rip_from_pack(struct dhcp_packet *dhc)
+int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 {
-	int ret=0;
+	//printf("<%s> option: %3d ret_size: %3d\n", __FUNCTION__, option, size);
+	if (ret_value == NULL) return -1;
+	if (size == 0) 		   return -1;
+	
 	int i;
-	add_log("Get RIP OPTION from DHCP packet");
-
-	//print_dhcp_options(dhc);
-	for(i=4; dhc->options[i]!=255 && i<DHCP_MAX_OPTION_LEN; i++){
-		if(dhc->options[i]==50) { ret=1;  break; }
-	}        
-
-        if(ret!=0) memcpy(&ret,dhc->options+i+2,4);
-	if(ret==0 && dhc->ciaddr.s_addr!=0) ret=dhc->ciaddr.s_addr;	
-
-//printf("RETURN RIP: "); printip(ret);
-	add_log("Succesful get RIP OPTION from DHCP packet");
-
-return ret;
-}
-
-//Получение своего адреса для eth0
-int get_my_ip(char *ip)
-{
-	int mip = get_iface_ip("eth0");
-	if (ip != NULL) memcpy(ip, &mip,4);
-	return mip;
-}
-
-long get_lease_time()
-{ //TODO убрать
-	return 60;
-}
-
-//Получение имени хоста из DHCP пакета
-char* get_host_from_pack(struct dhcp_packet *dhc){
-char *iter;
-char *ret=NULL;
-add_log("Get HOST OPTION from DHCP packet");
-    
-	iter=dhc->options+4;
-        while(*iter != 255){
-                if(*iter == 12){
-			 ret=malloc(*(iter+1));
-			 printf("hi\n");
-			 memcpy(&ret,iter+2,*(iter+1));
-			 return ret;
-		 }
-                iter++;
-        }
-
-add_log("Succesful get HOST OPTION from DHCP packet");
-return NULL;
+	memset(ret_value, 0, size);
+	
+	for(i = 4; i < DHCP_MIN_OPTION_LEN; i++)
+	{
+		int code = dhc->options[i];
+		
+		if (code == 255) break;
+		
+		int len  = dhc->options[i + 1];
+		//printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
+		if (code == option)
+		{
+			if ( size >= len && (nod(size, len) > 1 || is_char_option(option) || len == 1) )
+			{
+				memcpy(ret_value, dhc->options + i + 2, len);
+				return len;
+			}
+			else if ( size < len && (nod(size, len) > 1 || is_char_option(option)) )
+			{
+				memcpy(ret_value, dhc->options + i + 2, size);
+				return size;
+			}
+			else
+			{
+				perror("incorrect option size!");
+				return -1;
+			}
+		}
+		
+		i += len + 1;
+	}
+	
+	return -1;
 }
 
 //Получение адреса интерфейса
@@ -126,10 +111,9 @@ int get_iface_ip(char * iface)
 	int hres;
 	add_log("Get interface's IP");
 
-
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
-	memset(&ifr,0,sizeof(ifr));
+	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, iface, IFNAMSIZ);
        
 	hres = ioctl(sockfd, SIOCGIFADDR, &ifr);
@@ -147,7 +131,7 @@ int get_iface_ip(char * iface)
 //Обертка для recvfrom с таймаутом на селекте
 int recv_timeout(int sock, void * buf, int timeout)
 {
-	printf("<%s> sock: %d timeout: %d\n", __FUNCTION__, sock, timeout);
+	//printf("<%s> sock: %d timeout: %d\n", __FUNCTION__, sock, timeout);
 	fd_set rdfs;
 	struct timeval tv;
 	int ret;
@@ -204,49 +188,119 @@ int set_my_mac(char * iface, unsigned char * mac)
 }
 
 //Установка параметров сетевого интерфейса
-int set_config(char * buffer, char * iface)
+int apply_interface_settings(char * buffer, char * iface)
 {
+	struct ifreq ifr;
+	struct sockaddr_in sai;
+	int sockfd;                     
+	int selector;
+	unsigned char mask;
+	char * p;
+	int hres = -1;
 
-struct ifreq ifr;
-struct sockaddr_in sai;
-int sockfd;                     
-int selector;
-unsigned char mask;
-char *p;
-int hres=-1;
+	struct dhcp_packet * dhc = (struct dhcp_packet * ) (buffer + FULLHEAD_LEN);
 
-struct dhcp_packet *dhc=(struct dhcp_packet*) (buffer + FULLHEAD_LEN);
-
-add_log("Set interface configuration..");
+	add_log("Set interface configuration..");
  
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
-        strncpy(ifr.ifr_name, iface, IFNAMSIZ);
+	strncpy(ifr.ifr_name, iface, IFNAMSIZ);
 
-        memset(&sai, 0, sizeof(struct sockaddr));
-        sai.sin_family = AF_INET;
-        sai.sin_port = 0;
-        sai.sin_addr =dhc->yiaddr;
+	memset(&sai, 0, sizeof(struct sockaddr));
+	sai.sin_family = AF_INET;
+	sai.sin_port   = 0;
+	sai.sin_addr   = dhc->yiaddr;
 
-        p = (char *) &sai;
-        memcpy( &ifr.ifr_addr, p, sizeof(struct sockaddr));
+	p = (char *) &sai;
+	memcpy( &ifr.ifr_addr, p, sizeof(struct sockaddr));
 	
 	//Устанавливаем адрес пока не установится
-        while(hres-- <= -1){
-                hres=ioctl(sockfd, SIOCSIFADDR, &ifr);
-		if(hres==-1) perror("ioctl set ip");
-                }
+	int failcnt = 0;
+	while(hres-- <= -1 )
+	{
+		hres = ioctl(sockfd, SIOCSIFADDR, &ifr);
+		if (hres == -1) perror("ioctl set ip");
+		if (failcnt++ > 5) 
+		{
+			perror("cant'set ip");
+			close(sockfd);
+			return -1;
+		}
+	}
 
-        ioctl(sockfd, SIOCGIFFLAGS, &ifr);
-        ifr.ifr_flags |= IFF_UP | IFF_RUNNING | IFF_BROADCAST;
+	ioctl(sockfd, SIOCGIFFLAGS, &ifr);
+	ifr.ifr_flags |= IFF_UP | IFF_RUNNING | IFF_BROADCAST;
 
- 	hres=ioctl(sockfd, SIOCSIFFLAGS, &ifr);
-	if(hres==-1)  perror("ioctl set flags");
+ 	hres = ioctl(sockfd, SIOCSIFFLAGS, &ifr);
+	if (hres == -1)  perror("ioctl set flags");
 
-        close(sockfd);
-
-add_log("Successful set interface configuration");
-return 0;
+	close(sockfd);
+	
+	printf("IP SETUP!\n");
+	
+	//set routers
+	char routers[12];
+	hres = get_option(dhc, 3, (void *)routers, sizeof(routers));
+	if (hres > 0)
+	{
+		printf("SETUP ROUTERS: \n");
+		int router_cnt;
+		int router_max = hres / 4;
+		for ( router_cnt = 0; router_cnt < router_max; router_cnt++ )
+		{
+			u_int32_t ip;
+			memcpy(&ip, &routers[ 4 * router_cnt ], sizeof(ip)); 
+			printf("    SET ROUTER %d ---> ", router_cnt + 1); printip(ip);
+			//TODO
+		}
+	}
+	
+	//set dns
+	char dns[12];
+	hres = get_option(dhc, 6, (void *)dns, sizeof(dns));
+	if (hres > 0)
+	{
+		printf("SETUP DNS:\n");
+		
+		FILE *fd = fopen("/etc/resolv.conf", "a+");
+		if (fd == NULL) 
+		{
+			perror("cant open dns file");
+			return -1;
+		}
+		
+		int dns_cnt;
+		int dns_max = hres / 4;
+		for ( dns_cnt = 0; dns_cnt < dns_max; dns_cnt++ )
+		{
+			u_int32_t ip;
+			memcpy(&ip, &dns[ 4 * dns_cnt ], sizeof(ip)); 
+			printf("    SET DNS-SERVER %d ---> ", dns_cnt + 1); printip(ip);
+			fprintf(fd, "nameserver %d.%d.%d.%d\n", ip & 0xff, (ip >> 8) & 0xff, (ip >> 16) & 0xff, (ip >> 24) & 0xff);
+		}
+		fclose(fd);
+	}
+	
+	//set host_name
+	char hostname[32];
+	hres = get_option(dhc, 12, (void *)hostname, sizeof(hostname));
+	if (hres > 0)
+	{
+		printf("SETUP HOSTNAME: %s\n", hostname);
+		//TODO
+	}
+	
+	//set domain_name
+	char dname[32];
+	hres = get_option(dhc, 15, (void *)dname, sizeof(dname));
+	if (hres > 0)
+	{
+		printf("SETUP DOMAIN NAME: %s\n", dname);
+		//TODO
+	}
+	
+	add_log("Successful set interface configuration");
+	return 0;
 }
 
 

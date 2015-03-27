@@ -9,25 +9,30 @@
 #include <pthread.h>
 #include <string.h>
 
-struct qmessage { unsigned char text[2048]; unsigned char iface[50]; int delay;} **qm; //Очередь сообщений;
-int *qc;         //Счетчики количества сообщений в очереди
+struct qelement 
+{ 
+	struct qelement * next;
+	void            * data;
+	size_t            data_size;
+};
 
-sem_t *semid; //Семафоры
-pthread_mutex_t *mutex; //Мьютексы
+typedef struct qelement qelement_t;
 
-char *getmesstext(int arg); //Функция возврата текста сообщения по его номеру
-void pushmessage(struct qmessage in, int qnum); //Функция добавления сообщения в очередь с номером qnum
-struct qmessage popmessage(int qnum); //Вытаскивает сообщение из очереди
-struct qmessage genrandmessage(); //Генерирует случайное сообщение
-struct qmessage reversemessage(struct qmessage in); //Разворот текста сообщения
-void printmessage(struct qmessage in, int qnum); //Функция распечатки сообщения и удаления его из очереди
-void deletehead(int qnum); //Функция удаления первого элемента очереди
+typedef struct queue
+{
+	qelement_t     * head;
+	qelement_t     * tail;
+	sem_t            semid;
+	pthread_mutex_t  mutex;
+	int              elements;
+} queue_t;
 
+int pushmessage(queue_t * queues, int qnum, void * data, size_t size); //Функция добавления сообщения в очередь с номером qnum
+int popmessage (queue_t * queues, int qnum, void * data, size_t size); //Вытаскивает сообщение из очереди с номером qnum
+int deletehead(queue_t * queue); //Функция удаления первого элемента очереди
 
-void initsync(int count); //Инициализация и закрытие  средств синхронизации
-void uninitsync(int count);
-void initres(int count); //Инициализация и закрыти ресурсов
-void uninitres(int count); 
+queue_t * init_queues(int count);
+void uninit_queues(queue_t * queues, int count);
 
 
 #endif

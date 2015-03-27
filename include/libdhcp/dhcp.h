@@ -76,7 +76,8 @@
 
 int LASTRANDOM;
 
-struct dhcp_packet {
+struct dhcp_packet 
+{
 	u_int8_t  op;		/* 0: Message opcode/type */
 	u_int8_t  htype;	/* 1: Hardware addr type (net/if_types.h) */
 	u_int8_t  hlen;		/* 2: Hardware addr length */
@@ -95,7 +96,8 @@ struct dhcp_packet {
 				/* 212: Optional parameters (actual length dependent on MTU). */
 };
 
-struct arp_packet {
+struct arp_packet 
+{
 	unsigned short hardware;              /* тип транспортного протокола передачи данных, для Ethernet ARPHRD_ETHE==1 -- из файла <net/if_arp.h> */
 	unsigned short arp_protocol;          /* ETH_P_IP  -- из файла <linux/if_ether.h>*/
 	unsigned char arp_hard_addr_len;      /* размер mac адреса в байтах */
@@ -108,37 +110,39 @@ struct arp_packet {
 } __attribute__ ((packed)) ;
 
 
-struct udpheader {
-     unsigned short int udph_srcport;
-     unsigned short int udph_destport;
-     unsigned short int udph_len;
-     unsigned short int udph_chksum;
-    };
-
-struct dhcp_lease{
-     u_int32_t cip;
-     u_int32_t sip;	
-     long stime;
-     long ltime;
+struct udpheader 
+{
+	unsigned short int udph_srcport;
+	unsigned short int udph_destport;
+	unsigned short int udph_len;
+	unsigned short int udph_chksum;
 };
 
-struct s_dhcp_lease{
-     u_int32_t ip;                //Выданный адрес
-     long stime;		  //Время выдачи
-     long ltime;		  //Срок аренды
-     unsigned char haddr[ETH_ALEN]; //MAC
-     unsigned char hostname[9];  
-     unsigned char abandoned;
+struct dhcp_lease
+{
+	u_int32_t cip;
+	u_int32_t sip;	
+	long stime;
+	long ltime;
 };
 
-struct ethheader{
-        unsigned char dmac[ETH_ALEN];
-        unsigned char smac[ETH_ALEN];
-        unsigned short type;
+struct s_dhcp_lease
+{
+	u_int32_t     ip;//Выданный адрес
+	long 		  stime;		  //Время выдачи
+	long 		  ltime;		  //Срок аренды
+	unsigned char haddr[ETH_ALEN]; //MAC
+};
+
+struct ethheader
+{
+	unsigned char dmac[ETH_ALEN];
+	unsigned char smac[ETH_ALEN];
+	unsigned short type;
 }  __attribute__ ((packed));
 
 u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void * arg);
-void create_arp(char * iface, char *buffer, int ip, char *macs, char *macd, int oper);
+void create_arp(char * iface, char * buffer, int ip, char * macs, char * macd, int oper);
 void create_ipheader(char * buffer, int srcip, int destip);
 void create_udpheader(char* buffer , int srcport, int destport);
 void create_ethheader(void * buffer, unsigned char * smac, unsigned char * dmac, u_int16_t proto);
