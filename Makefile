@@ -12,7 +12,7 @@ debug:
 
 utils:
 	$(CC) $(CFLAGS) -o sender sender.c -L./libs -ldyndctp -ldyncommon
-	$(CC) $(CFLAGS) -o test_nagr dnagr.c -L./libs -ldyndhcp -ldynqueue -ldyncommon -pthread
+	$(CC) $(CFLAGS) -o test_nagr dnagr.c -L./libs -ldyndhcp -ldynqueue -ldyncommon -lpthread
 
 clean: 
 	make -C src/ clean

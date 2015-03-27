@@ -26,15 +26,14 @@ typedef struct qelement qelement_t;
 
 typedef struct queue
 {
-	qelement_t * head;
-	qelement_t * tail;
-	int          elements;
+	qelement_t       *head;
+	qelement_t       *tail;
+	sem_t            semid;
+	pthread_mutex_t  mutex;
+	int              elements;
 } queue_t;
 
 queue_t * queues;
-
-sem_t * semid; //Семафоры
-pthread_mutex_t * mutex; //Мьютексы
 
 int pushmessage(struct qmessage in, int qnum); //Функция добавления сообщения в очередь с номером qnum
 struct qmessage popmessage(int qnum); //Вытаскивает сообщение из очереди с номером qnum

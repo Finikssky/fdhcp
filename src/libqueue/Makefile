@@ -3,7 +3,7 @@ libqsources := pushmessage.c popmessage.c initsync.c deletehead.c
 libqobj := $(libqsources:.c=.o) 
 
 CC=gcc
-CFLAGS = -I../../include/libqueue 
+CFLAGS = -I../../include/libqueue -Wall -O3
 
 all: $(libqobj) 
 	ar cr libqueue.a $(libqobj)

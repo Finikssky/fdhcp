@@ -3,17 +3,18 @@
 struct qmessage popmessage(int qnum)
 {
 	struct qmessage ret;
+	queue_t * queue   = &queues[qnum];
 
-	sem_wait(&semid[qnum]);               //Ожидаем появления сообщения
-	pthread_mutex_lock(&mutex[qnum]);     //Блокируем
+	sem_wait(&queue->semid);               //Ожидаем появления сообщения
+	pthread_mutex_lock(&queue->mutex);     //Блокируем
 	
-	if (queues[qnum].head == NULL) return ret;
+	if (queue->head == NULL) return ret;
 	
-	ret = queues[qnum].head->data;      //Получаем голову очереди
+	ret = queue->head->data;      //Получаем голову очереди
 	
 	deletehead(qnum);		      //Удаляем голову из очереди
 	
-	pthread_mutex_unlock(&mutex[qnum]);   //Разблокируем
+	pthread_mutex_unlock(&queue->mutex);   //Разблокируем
 
 	return ret;
 }

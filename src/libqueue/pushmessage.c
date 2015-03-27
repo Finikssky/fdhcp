@@ -2,11 +2,10 @@
 
 int pushmessage(struct qmessage in, int qnum)
 {
-	int i;	
-	
-	pthread_mutex_lock(&mutex[qnum]);
-		
 	queue_t * queue   = &queues[qnum];
+	
+	pthread_mutex_lock(&queue->mutex);
+	
 	qelement_t * temp = malloc(sizeof(qelement_t));
 	
 	if (temp == NULL) return -1;
@@ -27,9 +26,9 @@ int pushmessage(struct qmessage in, int qnum)
 	
 	queue->elements++;
 	
-	sem_post(&semid[qnum]);
+	sem_post(&queue->semid);
 	
- 	pthread_mutex_unlock(&mutex[qnum]);
+ 	pthread_mutex_unlock(&queue->mutex);
 	
 	return 0;
 }
