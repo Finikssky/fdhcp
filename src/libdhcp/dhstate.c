@@ -2,28 +2,26 @@
 #include "core.h"
 
 //Функция поиска записи с заданный идентификатором
-int search_sid(int xid, int scount, struct session **ses)
+cl_session_t * search_sid(int xid, queue_t * sessions)
 {
 	int i;
 	add_log("Searshing sid...");
 
-	for( i = 0; i < scount; i++)
+	qelement_t * iter;
+	for (iter = sessions->head; iter != NULL; iter = iter->next)
 	{
-		if ((*ses)[i].sid == xid) 
-		{
-			add_log("Have sid!"); 
-			return i;
-		}
+		cl_session_t * ses = (cl_session_t *) iter->data;
+		if (ses->sid == xid) return ses;
 	}
 
 	add_log("No sid( ");
-	return -1;
+	return NULL;
 }
 
 //Функция получения типа сообщения
-int get_stype(int stat, struct qmessage mess)
+int get_stype(int stat, qmessage_t mess)
 {
-	struct dhcp_packet *dhc = (struct dhcp_packet*)(mess.text+FULLHEAD_LEN);
+	struct dhcp_packet * dhc = (struct dhcp_packet *)(mess.text + FULLHEAD_LEN);
 
 	add_log("Start validation and get signal...");
 	
@@ -48,34 +46,34 @@ int get_stype(int stat, struct qmessage mess)
 
 
 //Функция смены состояний, возвращает номер записи с которой мы будем работать
-int change_state(int xid, int dtype, struct qmessage mess, struct session **ses, int *scount, void * interface)
+cl_session_t * change_state(int xid, int dtype, qmessage_t mess, queue_t * sessions, void * interface)
 {
 	int num;
 	int i;
 	struct timeval now;
+	cl_session_t * ses;
 
 	add_log("Changing state...");
 
 	//Получаем нужный контекст клиента
-	printf("SCOUNT %d\n", *scount);
-	num = search_sid(xid, *scount, ses);
+	ses = search_sid(xid, sessions);
 
-	if (num == -1)
+	if (ses == NULL)
 	{
 		//Если клиента нет в списке добавляем новую запись
-		*ses = realloc(*ses,(++(*scount)) * sizeof(struct session));
-		if (*ses == NULL) perror("realloc in changing state");
-
-		num = *scount - 1;
-		memset(&((*ses)[num]), 0, sizeof(struct session));
-		(*ses)[num].sid   = xid;
-		(*ses)[num].state = START;
+		cl_session_t temp;
+		temp.sid   = xid;
+		temp.state = START;
+		
+		push_queue(sessions, 0, &temp, sizeof(temp));
+		ses = (cl_session_t *)sessions->tail->data;
+		printf("created new session\n");
 	}
-
+	printf("sessions count now: %d\n", sessions->elements);
 	gettimeofday(&now, NULL);
 
 //Проводим валидацию сообщения с учетом текущего состояния
-	int signal = get_stype((*ses)[num].state, mess);
+	int signal = get_stype(ses->state, mess);
 	printf("signal %d\n", signal);
 
 //В зависимости от текущего состояния и результата валидации совершаем переход
@@ -83,13 +81,13 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 
 	for (i = 0; i < ptable_count; i++)
 	{
-		if ((*ses)[num].state == ptable[i].currstate && signal == ptable[i].in)
+		if (ses->state == ptable[i].currstate && signal == ptable[i].in)
 		{
 			printf("change state %d to %d\n", ptable[i].currstate, ptable[i].nextstate);
-			(*ses)[num].state = ptable[i].nextstate; //Меняем состояние
-			(*ses)[num].ctime = now.tv_sec; 		 //Устанавливаем время последней смены состояния
-			mess.delay 		  = (*ses)[num].state;   //В сообщение добавляем текущее состояние для TX
-			(*ses)[num].mess  = mess; 				 //Запоминаем последнее сообщение
+			ses->state  = ptable[i].nextstate; //Меняем состояние
+			ses->ctime  = now.tv_sec; 		 //Устанавливаем время последней смены состояния
+			mess.delay = ses->state;   //В сообщение добавляем текущее состояние для TX
+			ses->mess   = mess; 				 //Запоминаем последнее сообщение
 			break;
 		}	
 	}
@@ -97,82 +95,76 @@ int change_state(int xid, int dtype, struct qmessage mess, struct session **ses,
 	//Взависимости от текущего состояния автомата выполняем соответствующую функцию
 	for (i = 0; i < ptable_count; i++)
 	{
-		if ((*ses)[num].state == ptable[i].currstate) 
+		if (ses->state == ptable[i].currstate) 
 		{
-			printf("state %d\n", (*ses)[num].state);
-			long status = ptable[i].fun((*ses)[num].mess.text, interface);
-			if ( -1 == status ) return -1;
-			(*ses)[num].ltime = status;
+			printf("state %d\n", ses->state);
+			long status = ptable[i].fun(ses->mess.text, interface);
+			if ( -1 == status ) return NULL;
+			ses->ltime = status;
 			add_log("State changed!");
 			break;
 		}
 	}
 	
-	return num;
+	return ses;
 }
 
-void clear_context(struct session **ses, int * scount, void * interface)
+void clear_context(queue_t * sessions, void * interface)
 {
-	struct session * new = NULL;
-	int i,j;
-	int newscount = 0;
+	int i;
 	struct timeval now;
 
 	//Копируем все действительные контексты во временный массив
-	for (i = 0; i < *scount;i++)
+	qelement_t * iter;
+	for (iter = sessions->head; iter != NULL; )
 	{
-		if ((*ses)[i].state != CLOSE) 
+		cl_session_t * ses = (cl_session_t *)iter->data;
+		if (ses->state == CLOSE) 
 		{
-			new = realloc(new, (++newscount) * sizeof(struct session));
-			new[newscount-1] = (*ses)[i];
+			qelement_t * next = iter->next;
+			delete_ptr(sessions, iter);
+			iter = next;
 		}
-	}
-	
-	//Очищаем старый массив и копируем временный в него
-	*scount = newscount;
-	*ses    = realloc(*ses,(*scount)*sizeof(struct session));
-	memset(*ses, 0, (*scount) * sizeof(struct session));
-	memcpy(*ses, new, (*scount) * sizeof(struct session));
-
-	//Если время ожидания перехода истекло
-	for (i = 0; i < *scount; i++)
-	{
-		gettimeofday(&now,NULL);
-		switch ((*ses)[i].state)
+		else
 		{
-			case OFFER:
-				if ((*ses)[i].ctime + TIMEPAUSE < now.tv_sec) (*ses)[i].state = CLOSE;
-				break;
-				
-			case ANSWER:
-				if ((*ses)[i].ctime + (*ses)[i].ltime + TIMEPAUSE < now.tv_sec) 
-				{
-					(*ses)[i].state = NAK;
-					(*ses)[i].mess.delay = NAK;
+			gettimeofday(&now,NULL);
+			
+			switch (ses->state)
+			{
+				case OFFER:
+					if (ses->ctime + TIMEPAUSE < now.tv_sec) ses->state = CLOSE;
+					break;
 					
-					for (j = 0; j < ptable_count; j++)
+				case ANSWER:
+					if (ses->ctime + ses->ltime + TIMEPAUSE < now.tv_sec) 
 					{
-						if ((*ses)[i].state == ptable[j].currstate) 
+						ses->state = NAK;
+						ses->mess.delay = NAK;
+						
+						for (i = 0; i < ptable_count; i++)
 						{
-							ptable[j].fun((*ses)[i].mess.text, interface);
-							break;
+							if (ses->state == ptable[i].currstate) 
+							{
+								ptable[i].fun(ses->mess.text, interface);
+								break;
+							}
 						}
+						dserver_interface_t * ifs = (dserver_interface_t *)interface;
+						push_queue( ifs->qtransport, 1, &(ses->mess), sizeof(ses->mess) );
 					}
-					dserver_interface_t * ifs = (dserver_interface_t *)interface;
-					pushmessage( ifs->qtransport, 1, &((*ses)[i].mess), sizeof((*ses)[i].mess) );
-				}
-				break;
-				
-			case NAK:
-				(*ses)[i].state = CLOSE;
-				break;
-				
-			default:
-				break;
+					break;
+					
+				case NAK:
+					ses->state = CLOSE;
+					break;
+					
+				default:
+					break;
+			}
+			
+			iter = iter->next;
 		}
 	}
-
-	if (new != NULL) free(new);
 }
 
 

@@ -382,7 +382,7 @@ void * s_recvDHCP(void * arg)
 			printf("I think this is dhcp-request\n");
 			memcpy(mess.text, buffer, sizeof(buffer));
 			mess.delay = STEP;
-			pushmessage(interface->qtransport, 0, &mess, sizeof(mess));				//Помещаем в очередь
+			push_queue(interface->qtransport, 0, &mess, sizeof(mess));				//Помещаем в очередь
 		}
 	}
 }
@@ -397,7 +397,7 @@ void * s_replyDHCP(void * arg)
 	while(1)
 	{
 		add_log("SEND_SERVER_REPLY");
-		popmessage(interface->qtransport, 1, &mess, sizeof(mess));
+		pop_queue(interface->qtransport, 1, &mess, sizeof(mess));
 		sendDHCP(interface->send_sock, interface->name, (void*)mess.text, 0);
 	}
 }
@@ -407,12 +407,10 @@ void * s_fsmDHCP(void * arg)
 	add_log("Start fsm");
 
 	dserver_interface_t * interface = (dserver_interface_t *)arg;
-	int scount  = 0;
+	struct timer t = { interface->cci, sm, (void *)interface };
 	int i = 0;
 	qmessage_t mess;
-	struct session *ses;
-
-	struct timer t = { interface->cci, sm, (void *)interface };
+	
 	int result = pthread_create(&interface->fsm_timer, NULL, timer, (void *)&t); //Создание потока таймера
 	if (result != 0)
 	{
@@ -422,22 +420,22 @@ void * s_fsmDHCP(void * arg)
 	
 	while(1)
 	{
-		popmessage(interface->qtransport, 0, &mess, sizeof(mess));
+		pop_queue(interface->qtransport, 0, &mess, sizeof(mess));
 		
 		if (mess.delay == STEP) 
 		{
 			struct dhcp_packet * dhc = (struct dhcp_packet *) (mess.text + FULLHEAD_LEN);
 			//Делаем шаг автомата
-			int num = change_state(dhc->xid, dhc->options[6], mess, &ses, &scount, (void *) interface);
-			if (num == -1) continue;
+			cl_session_t * ses = change_state(dhc->xid, dhc->options[6], mess, interface->qsessions, (void *) interface);
+			if (ses == NULL) continue;
 			//Пересылаем сообщение
-			if (ses[num].state != CLOSE) pushmessage(interface->qtransport, 1, &(ses[num].mess), sizeof(ses[num].mess));
+			if (ses->state != CLOSE) push_queue(interface->qtransport, 1, &(ses->mess), sizeof(ses->mess));
 		}
 		if (mess.delay == TIME)  
 		{	
-			//printf("\n\ntime to change, scount=%d\n", scount);
-			clear_context(&ses, &scount, (void *) interface);		   //Очищаем базу сессий
-			//printf("cleared sessions, new scount =%d\n",scount);
+			//printf("\n\ntime to change, scount= %d\n", interface->qsessions->elements);
+			clear_context(interface->qsessions, (void *) interface);		   //Очищаем базу сессий
+			//printf("cleared sessions, new scount = %d\n", interface->qsessions->elements);
 			if ( ++i % (60 / interface->cci) == 0) 
 			{ 
 				clear_lease(); 
@@ -447,10 +445,6 @@ void * s_fsmDHCP(void * arg)
 		if (mess.delay == DISABLE)
 		{
 			printf("disabling fsm...\n");
-			if (ses != NULL) 
-			{
-				free(ses);
-			}
 			pthread_exit(PTHREAD_CANCELED);
 		}
 	}
@@ -463,7 +457,8 @@ int enable_interface(dserver_interface_t * interface, int idx)
 	interface->c_idx  = idx;
 	interface->listen_sock = init_packet_sock(interface->name, ETH_P_ALL); //? ETH_P_ALL
 	interface->send_sock   = init_packet_sock(interface->name, ETH_P_IP); 
-	interface->qtransport  = init_queues(2);
+	interface->qtransport  = init_queues(2, Q_TRANSPORT_MODE);
+	interface->qsessions   = init_queues(1, Q_STANDART_MODE);
 	
 	if (interface->listen_sock == -1 || interface->send_sock == -1) return -1;
 	
@@ -532,7 +527,7 @@ int disable_interface(dserver_interface_t * interface, int idx)
 	
 	struct qmessage mess;
 	mess.delay = DISABLE;
-	pushmessage(interface->qtransport, 0, &mess, sizeof(mess));
+	push_queue(interface->qtransport, 0, &mess, sizeof(mess));
 	
 	void * res;
 	if (0 != pthread_join(interface->fsm, &res)) return -1;
@@ -547,6 +542,7 @@ int disable_interface(dserver_interface_t * interface, int idx)
 	close(interface->listen_sock);
 	close(interface->send_sock);
 	uninit_queues(interface->qtransport, 2);
+	uninit_queues(interface->qsessions, 1);
 		
 	printf("IFACE %s DISABLED!\n", interface->name);
 	return 0;
@@ -577,7 +573,7 @@ void * sm(void * arg)
 
 	qmessage_t mess;
 	mess.delay = TIME;
-	pushmessage(interface->qtransport, 0, &mess, sizeof(mess));
+	push_queue(interface->qtransport, 0, &mess, sizeof(mess));
 	
 	return NULL;
 }
