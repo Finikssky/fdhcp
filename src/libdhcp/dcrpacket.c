@@ -211,7 +211,7 @@ int create_ack( void * iface, char * options, u_int32_t * y_addr , long * ltime)
 }
 
 // Create DHCP packet
-u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void * arg)
+u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int * opt_size, void * arg)
 {
 	struct dhcp_packet * cldhcp = (struct dhcp_packet *)(buffer + FULLHEAD_LEN);
 	long ltime = 0;
@@ -309,6 +309,9 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	cldhcp->options[cnt++] = 255; //Конец опций
 	memset(cldhcp->options + cnt, 0, sizeof(cldhcp->options) - cnt); //Очистка оставшегося поля пакета
 
+	if (opt_size) 
+		*opt_size = cnt * sizeof(unsigned char);
+
 	add_log("Succesful created DHCP packet");
 	
 	if (dtype == DHCPACK || dtype == DHCPOFFER) return ntohl(ltime);
@@ -316,7 +319,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 }
 
 //Create IP header
-void create_ipheader(char * buffer, int srcip, int destip ) 
+void create_ipheader(char * buffer, int opt_size, int srcip, int destip ) 
 {
 	struct ip *ip = (struct ip *) (buffer + sizeof(struct ethheader));
 
@@ -326,7 +329,7 @@ void create_ipheader(char * buffer, int srcip, int destip )
     ip->ip_hl  = 5;
     ip->ip_v   = 4;
     ip->ip_tos = IPTOS_LOWDELAY; 
-    ip->ip_len = htons(sizeof(struct ip) + sizeof(struct udpheader)+sizeof(struct dhcp_packet));
+    ip->ip_len = htons(sizeof(struct ip) + sizeof(struct udpheader) + DHCP_FIXED_NON_UDP + opt_size);
     ip->ip_id  = 0;
     ip->ip_off = 0;
     ip->ip_ttl = 128; // hops
@@ -338,14 +341,14 @@ void create_ipheader(char * buffer, int srcip, int destip )
 	ip->ip_dst.s_addr = destip;
 
     // Calculate the checksum for integrity
-	ip->ip_sum = wrapsum(checksum((unsigned short *)ip, sizeof(struct ip),0));
+	ip->ip_sum = wrapsum(checksum((unsigned short *)ip, sizeof(struct ip), 0));
 
 	add_log("Succesful created IP header");	
 };
 
 //Create UDP header
 
-void create_udpheader(char * buffer, int srcport, int destport)
+void create_udpheader(char * buffer, int opt_size, int srcport, int destport)
 {
 	struct udphdr      * udp = (struct udphdr *) (buffer + sizeof(struct ethheader) + sizeof(struct ip));
 	struct ip          * ip  = (struct ip *) (buffer + sizeof(struct ethheader));
@@ -357,11 +360,11 @@ void create_udpheader(char * buffer, int srcport, int destport)
 
 	udp->source = htons(srcport);
 	udp->dest   = htons(destport);
-	udp->len    = htons(sizeof(struct udphdr) + sizeof(struct dhcp_packet));
+	udp->len    = htons(sizeof(struct udphdr) + DHCP_FIXED_NON_UDP + opt_size);
 	memset(&udp->check, 0, sizeof(udp->check));
 
 	udp->check = wrapsum( checksum ((unsigned char*) udp, sizeof(struct udphdr),
-						  checksum ((unsigned char*) dhc, sizeof(struct dhcp_packet),
+						  checksum ((unsigned char*) dhc, DHCP_FIXED_NON_UDP + opt_size,
 						  checksum ((unsigned char*) &ip->ip_src, 8,
 						  IPPROTO_UDP + (u_int32_t)ntohs(udp->len))))
 				);

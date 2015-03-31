@@ -15,7 +15,8 @@
 #define TIME 7
 #define DISABLE 1
 
-int TIMEPAUSE = 10;
+#define MAX_RESPONSE 10
+#define MIN_RESPONSE 3
 
 typedef struct cl_session
 { 

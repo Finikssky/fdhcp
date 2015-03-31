@@ -14,7 +14,7 @@ char * ename;
 
 void * reply(void * arg)
 {
-	char buf[2048];
+	char buf[DHCP_MTU_MAX];
 	int rep_sock = init_packet_sock(ename, ETH_P_ALL);
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
@@ -25,7 +25,7 @@ void * reply(void * arg)
 		
 		if ( (now.tv_sec - st.tv_sec) > 5 ) break;
 		
-		recvfrom(rep_sock, buf, 1518, 0, NULL, 0);
+		recvfrom(rep_sock, buf, DHCP_MTU_MAX, 0, NULL, 0);
 		struct dhcp_packet * dhc = (struct dhcp_packet *) (buf + FULLHEAD_LEN);
 		
 		if (dhc->op == 2)  
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	REPLYES       = 0;
 	double correct = 0;
 
-	char buf[2048];
+	char buf[DHCP_MTU_MAX];
 
 	if (argc > 1) 
 		ename = argv[1];
@@ -69,17 +69,16 @@ int main(int argc, char* argv[])
 
 	int sock = init_packet_sock(ename, ETH_P_IP);
 
-	int size = FULLHEAD_LEN + sizeof(struct dhcp_packet);
-
 	struct dhcp_packet *dhc;
 
 	set_my_mac(ename, macs);
 	memset(buf, 0, sizeof(buf));
 
+	int opt_size = 0;
+	create_packet(ename, buf, 1, DHCPDISCOVER, &opt_size, NULL);
 	create_ethheader(buf, macs, macd, ETH_P_IP);
-	create_ipheader(buf, INADDR_ANY, INADDR_BROADCAST);
-	create_packet(ename, buf, 1, DHCPDISCOVER, NULL);
-	create_udpheader(buf, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+	create_ipheader(buf, opt_size, INADDR_ANY, INADDR_BROADCAST);
+	create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 	
 	gettimeofday(&start, NULL);
 	
@@ -97,7 +96,7 @@ int main(int argc, char* argv[])
 		LASTRANDOM %= 1000000;		
 
 		//sendDHCP(ename,(void*)buf,0); 
-		if ( write( sock, buf, size) == -1 )  
+		if ( write( sock, buf, DHCP_FULL_WITHOUT_OPTIONS + opt_size) == -1 )  
 		{
 			perror("Error: send ");
 			close(sock);

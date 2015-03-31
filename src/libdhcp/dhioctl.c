@@ -69,11 +69,18 @@ int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 	int i;
 	memset(ret_value, 0, size);
 	
-	for(i = 4; i < DHCP_MIN_OPTION_LEN; i++)
+	for(i = 4; i < DHCP_MAX_OPTION_LEN; i++)
 	{
 		int code = dhc->options[i];
 		
-		if (code == 255) break;
+		if (code == 255)
+		{
+			if (option == 255)
+			{
+				memcpy(ret_value, &i, sizeof(int));
+			}
+			break;
+		}
 		
 		int len  = dhc->options[i + 1];
 		//printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
@@ -144,7 +151,7 @@ int recv_timeout(int sock, void * buf, int timeout)
 		
 	if (ret > 0) 
 	{
-		int bytes = recvfrom(sock, buf, 1518, 0, NULL, 0);
+		int bytes = recvfrom(sock, buf, DHCP_MTU_MAX, 0, NULL, 0);
 		if (bytes == -1)
 		{
 			perror("<recv_timeout> recv");

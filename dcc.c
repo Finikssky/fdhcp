@@ -286,9 +286,10 @@ void * iface_loop (void * iface)
 	dclient_interface_t * interface = (dclient_interface_t *)iface;
 	unsigned char macs[6];
 	unsigned char macd[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
-	char buf[2048];
+	char buf[DHCP_MTU_MAX];
 	u_int32_t myxid;
 	int ret;
+	int opt_size;
 	u_int32_t REQ_ADDR = INADDR_BROADCAST;
 
 start:
@@ -298,12 +299,13 @@ start:
 		//Собираем пакет DHCPDISCOVER и отсылаем, ждем DHCPOFFER
 		set_my_mac(interface->name, macs);
 		memset(buf, 0, sizeof(buf));
+		opt_size = 0;
+		myxid = create_packet(interface->name, buf, 1, DHCPDISCOVER, &opt_size, (void *)interface);
 		create_ethheader((void *)buf, macs, macd, ETH_P_IP);
-		create_ipheader(buf, INADDR_ANY, INADDR_BROADCAST);
-		myxid = create_packet(interface->name, buf, 1, DHCPDISCOVER, (void *)interface);
-		create_udpheader(buf, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
-			
-		sendDHCP(interface->send_sock, interface->name, (void*)buf, 0); 
+		create_ipheader(buf, opt_size, INADDR_ANY, INADDR_BROADCAST);
+		create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+		
+		sendDHCP(interface->send_sock, interface->name, (void*)buf, opt_size == 0 ? 0 : DHCP_FULL_WITHOUT_OPTIONS + opt_size ); 
 		if (recvDHCP(interface->listen_sock, interface->name, (void*)buf, DHCPOFFER, myxid ) == -1) 
 		{ 
 			goto start;
@@ -314,14 +316,15 @@ start:
 
 request:	
 		//Собираем пакет DHCPREQUEST и отсылаем, ждем ACK|NAK
+		opt_size = 0;
 		printip(REQ_ADDR);
 		set_my_mac(interface->name, macs);	
+		create_packet(interface->name, buf, 1, DHCPREQUEST, &opt_size, (void *)interface);
 		create_ethheader((void *)buf, macs, macd, ETH_P_IP);
-		create_ipheader(buf, INADDR_ANY, REQ_ADDR);
-		create_packet(interface->name, buf, 1, DHCPREQUEST, (void *)interface);
-		create_udpheader(buf, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+		create_ipheader(buf, opt_size, INADDR_ANY, REQ_ADDR);
+		create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 	 
-		sendDHCP(interface->send_sock, interface->name, (void*)buf, 0); 
+		sendDHCP(interface->send_sock, interface->name, (void*)buf, opt_size == 0 ? 0 : DHCP_FULL_WITHOUT_OPTIONS + opt_size ); 
 		if (recvDHCP(interface->listen_sock, interface->name, (void*)buf, DHCPACK, myxid ) == -1) 
 		{
 			goto start;
@@ -334,12 +337,13 @@ request:
 		if (arp_proof(interface->name, buf) == 0) break;
 		else
 		{
+			opt_size = 0;
 			set_my_mac(interface->name, macs);
+			create_packet(interface->name, buf, 1, DHCPDECLINE, &opt_size, (void *)interface);
 			create_ethheader((void *)buf, macs, macd, ETH_P_IP);
-			create_ipheader(buf, INADDR_ANY, INADDR_BROADCAST);
-			create_packet(interface->name, buf, 1, DHCPDECLINE, (void *)interface);
-			create_udpheader(buf, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
-			sendDHCP(interface->send_sock, interface->name, (void*)buf, 0);
+			create_ipheader(buf, opt_size, INADDR_ANY, INADDR_BROADCAST);
+			create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+			sendDHCP(interface->send_sock, interface->name, (void*)buf, opt_size == 0 ? 0 : DHCP_FULL_WITHOUT_OPTIONS + opt_size);
 		}
 	
 	}	

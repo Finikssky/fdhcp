@@ -281,11 +281,11 @@ int send_offer(void * buffer, void * arg)
 	add_log("Sending DHCPOFFER..");
 
 	set_my_mac(interface->name, macs);	
-	
+	int opt_size = 0;
+	if (-1 == create_packet(interface->name, buffer, 2, DHCPOFFER, &opt_size, (void *)interface)) return -1;	
 	create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);
-	if (-1 == create_packet(interface->name, buffer, 2, DHCPOFFER, (void *)interface)) return -1;	
-	create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
+	create_ipheader(buffer, opt_size, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
+	create_udpheader(buffer, opt_size, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
 	add_log("DHCPOFFER sended!");
 	return 0;
@@ -299,12 +299,13 @@ int send_nak(void * buffer, void * arg)
 	
 	add_log("Sending DHCPNAK..");
 
+	int opt_size = 0;
 	set_my_mac(interface->name, macs);
 
+	create_packet(interface->name, buffer, 2, DHCPNAK, &opt_size, (void *)interface);
 	create_ethheader(buffer, macs, macb, ETH_P_IP);
-	create_packet(interface->name, buffer, 2, DHCPNAK, (void *)interface);
-	create_ipheader(buffer, get_iface_ip(interface->name), INADDR_BROADCAST);
-	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
+	create_ipheader(buffer, opt_size, get_iface_ip(interface->name), INADDR_BROADCAST);
+	create_udpheader(buffer, opt_size, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
 	add_log("DHCPNAK sended!");
 	return 0;
@@ -322,28 +323,29 @@ int send_answer(void * buffer, void * arg)
 
 	set_my_mac(interface->name, macs);
 	long ltime = 0;
+	int opt_size;
 	
 	//Проверяем доступен ли адрес
 	int result = get_proof(dhc, &dhc->yiaddr.s_addr);
 	if (result > 0) 
 	{	
 		//В случае положительного ответа отправляем АСК
-		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
-		ltime = create_packet(interface->name, buffer, 2, DHCPACK, (void *)interface);
+		ltime = create_packet(interface->name, buffer, 2, DHCPACK, &opt_size, (void *)interface);
 		if (ltime == -1) return -1;
-		create_ipheader(buffer, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
+		create_ethheader(buffer, macs, dhc->chaddr, ETH_P_IP);		
+		create_ipheader(buffer, opt_size, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
 		s_add_lease(interface, dhc->yiaddr.s_addr, dhc->chaddr, ltime); //TODO refactoring lease_time
 	}
 	else if (result == 0)  
 	{	
 		//В случае отрицательного ответа отправляем NAK
+		create_packet(interface->name, buffer, 2, DHCPNAK, &opt_size, (void *) interface);
 		create_ethheader(buffer, macs, macb, ETH_P_IP);
-		create_packet(interface->name, buffer, 2, DHCPNAK, (void *) interface);
-		create_ipheader(buffer, get_iface_ip(interface->name), INADDR_BROADCAST);
+		create_ipheader(buffer, opt_size, get_iface_ip(interface->name), INADDR_BROADCAST);
 	}
 	else if (result == -1) return -1;
 
-	create_udpheader(buffer, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
+	create_udpheader(buffer, opt_size, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 
 	add_log("DHCPACK/DHCPNAK sended!");
 	return ltime;
@@ -357,14 +359,14 @@ void * s_recvDHCP(void * arg)
 	struct ethheader    * eth;
 	struct dhcp_packet  * dhc;
 	struct qmessage       mess;
-	char                  buffer[2048];
+	char                  buffer[DHCP_MTU_MAX];
 
 	add_log("Start server receiving thread!");
 
 	while(1)
 	{
 		memset(buffer, 0, sizeof(buffer));
-		bytes = recvfrom(interface->listen_sock, buffer, 1518, 0, NULL, 0);
+		bytes = recvfrom(interface->listen_sock, buffer, DHCP_MTU_MAX, 0, NULL, 0);
 		if (bytes == -1)
 		{
 			perror("<s_recvDHCP> recvfrom");
@@ -376,13 +378,18 @@ void * s_recvDHCP(void * arg)
 		printf("source  "); printmac(eth->smac);
 		printf("dest  ");   printmac(eth->dmac);
 
-		dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
+		dhc = (struct dhcp_packet *) (buffer + FULLHEAD_LEN);
 		if (dhc->op == 1) 
 		{
 			printf("I think this is dhcp-request\n");
-			memcpy(mess.text, buffer, sizeof(buffer));
-			mess.delay = STEP;
-			push_queue(interface->qtransport, 0, &mess, sizeof(mess));				//Помещаем в очередь
+			int opt_len = 0;
+			get_option(dhc, 255, &opt_len, sizeof(int));
+			
+			mess.code = STEP;
+			mess.size = DHCP_FULL_WITHOUT_OPTIONS + opt_len + 1;
+			memcpy(mess.packet, buffer, mess.size);
+			
+			push_queue(interface->qtransport, 0, &mess, mess.size);				//Помещаем в очередь
 		}
 	}
 }
@@ -398,7 +405,7 @@ void * s_replyDHCP(void * arg)
 	{
 		add_log("SEND_SERVER_REPLY");
 		pop_queue(interface->qtransport, 1, &mess, sizeof(mess));
-		sendDHCP(interface->send_sock, interface->name, (void*)mess.text, 0);
+		sendDHCP(interface->send_sock, interface->name, (void*)mess.packet, mess.size); //TODO correct size
 	}
 }
 
@@ -420,18 +427,19 @@ void * s_fsmDHCP(void * arg)
 	
 	while(1)
 	{
+		memset(&mess, 0, sizeof(mess))
 		pop_queue(interface->qtransport, 0, &mess, sizeof(mess));
 		
-		if (mess.delay == STEP) 
+		if (mess.code == STEP) 
 		{
-			struct dhcp_packet * dhc = (struct dhcp_packet *) (mess.text + FULLHEAD_LEN);
+			struct dhcp_packet * dhc = (struct dhcp_packet *) (mess.packet + FULLHEAD_LEN);
 			//Делаем шаг автомата
 			cl_session_t * ses = change_state(dhc->xid, dhc->options[6], mess, interface->qsessions, (void *) interface);
 			if (ses == NULL) continue;
 			//Пересылаем сообщение
-			if (ses->state != CLOSE) push_queue(interface->qtransport, 1, &(ses->mess), sizeof(ses->mess));
+			if (ses->state != CLOSE) push_queue(interface->qtransport, 1, &(ses->mess), ses->mess.size);
 		}
-		if (mess.delay == TIME)  
+		if (mess.code == TIME)  
 		{	
 			//printf("\n\ntime to change, scount= %d\n", interface->qsessions->elements);
 			clear_context(interface->qsessions, (void *) interface);		   //Очищаем базу сессий
@@ -442,7 +450,7 @@ void * s_fsmDHCP(void * arg)
 				i = 0;
 			} 
 		}
-		if (mess.delay == DISABLE)
+		if (mess.code == DISABLE)
 		{
 			printf("disabling fsm...\n");
 			pthread_exit(PTHREAD_CANCELED);
@@ -526,7 +534,7 @@ int disable_interface(dserver_interface_t * interface, int idx)
 	}
 	
 	struct qmessage mess;
-	mess.delay = DISABLE;
+	mess.code = DISABLE;
 	push_queue(interface->qtransport, 0, &mess, sizeof(mess));
 	
 	void * res;
@@ -572,7 +580,7 @@ void * sm(void * arg)
 	dserver_interface_t * interface = (dserver_interface_t *)arg;
 
 	qmessage_t mess;
-	mess.delay = TIME;
+	mess.code = TIME;
 	push_queue(interface->qtransport, 0, &mess, sizeof(mess));
 	
 	return NULL;

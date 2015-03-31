@@ -46,20 +46,21 @@
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
 
-#define FULLHEAD_LEN sizeof(struct ethheader) + sizeof(struct ip) + sizeof(struct udphdr)
+#define FULLHEAD_LEN        sizeof(struct ethhdr) + sizeof(struct ip) + sizeof(struct udphdr)
 
 #define DHCP_UDP_OVERHEAD	(20 + /* IP header */			\
-									8)   /* UDP header */
+							 8)   /* UDP header */
 #define DHCP_SNAME_LEN		64
 #define DHCP_FILE_LEN		128
 #define DHCP_FIXED_NON_UDP	236
 #define DHCP_FIXED_LEN		(DHCP_FIXED_NON_UDP + DHCP_UDP_OVERHEAD)
 						/* Everything but options. */
 #define DHCP_MTU_MAX		1500
-#define DHCP_MTU_MIN            576
+#define DHCP_MTU_MIN 		576
 
-#define DHCP_MAX_OPTION_LEN	(DHCP_MTU_MAX - DHCP_FIXED_LEN)
-#define DHCP_MIN_OPTION_LEN     (DHCP_MTU_MIN - DHCP_FIXED_LEN)
+#define DHCP_MAX_OPTION_LEN       (DHCP_MTU_MAX - DHCP_FIXED_NON_UDP - FULLHEAD_LEN)
+#define DHCP_MIN_OPTION_LEN       (DHCP_MTU_MIN - DHCP_FIXED_LEN)
+#define DHCP_FULL_WITHOUT_OPTIONS (DHCP_FIXED_NON_UDP + FULLHEAD_LEN)
 
 #define DHCPDISCOVER		1
 #define DHCPOFFER			2
@@ -92,21 +93,21 @@ struct dhcp_packet
 	unsigned char chaddr [16];	/* 24: Client hardware address */
 	char sname [DHCP_SNAME_LEN];	/* 40: Server name */
 	char file [DHCP_FILE_LEN];	/* 104: Boot filename */
-	unsigned char options [DHCP_MIN_OPTION_LEN];
+	unsigned char options [DHCP_MAX_OPTION_LEN];
 				/* 212: Optional parameters (actual length dependent on MTU). */
 };
 
 struct arp_packet 
 {
-	unsigned short hardware;              /* тип транспортного протокола передачи данных, для Ethernet ARPHRD_ETHE==1 -- из файла <net/if_arp.h> */
-	unsigned short arp_protocol;          /* ETH_P_IP  -- из файла <linux/if_ether.h>*/
-	unsigned char arp_hard_addr_len;      /* размер mac адреса в байтах */
-	unsigned char arp_prot_addr_len;      /* размер ip адреса в байтах */
-	unsigned short arp_operation; /* тип arp пакета: запрос ARPOP_REQUEST==1 или ответ ARPOP_REPLY==2 -- из файла <net/if_arp.h>*/
-	unsigned char arp_mac_source[ETH_ALEN];/*  mac адрес получателя пакета */
-	in_addr_t     arp_ip_source;
-	unsigned char arp_mac_target[6];       /* mac адрес отправителя пакета */
-	in_addr_t     arp_ip_target;
+	unsigned short  hardware;              /* тип транспортного протокола передачи данных, для Ethernet ARPHRD_ETHE==1 -- из файла <net/if_arp.h> */
+	unsigned short  arp_protocol;          /* ETH_P_IP  -- из файла <linux/if_ether.h>*/
+	unsigned char   arp_hard_addr_len;      /* размер mac адреса в байтах */
+	unsigned char   arp_prot_addr_len;      /* размер ip адреса в байтах */
+	unsigned short  arp_operation; /* тип arp пакета: запрос ARPOP_REQUEST==1 или ответ ARPOP_REPLY==2 -- из файла <net/if_arp.h>*/
+	unsigned char   arp_mac_source[ETH_ALEN];/*  mac адрес получателя пакета */
+	in_addr_t       arp_ip_source;
+	unsigned char   arp_mac_target[6];       /* mac адрес отправителя пакета */
+	in_addr_t       arp_ip_target;
 } __attribute__ ((packed)) ;
 
 
@@ -117,6 +118,13 @@ struct udpheader
 	unsigned short int udph_len;
 	unsigned short int udph_chksum;
 };
+
+struct ethheader
+{
+	unsigned char dmac[ETH_ALEN];
+	unsigned char smac[ETH_ALEN];
+	unsigned short type;
+}  __attribute__ ((packed));
 
 struct dhcp_lease
 {
@@ -134,17 +142,10 @@ struct s_dhcp_lease
 	unsigned char haddr[ETH_ALEN]; //MAC
 };
 
-struct ethheader
-{
-	unsigned char dmac[ETH_ALEN];
-	unsigned char smac[ETH_ALEN];
-	unsigned short type;
-}  __attribute__ ((packed));
-
-u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void * arg);
+u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int * opt_size, void * arg);
 void create_arp(char * iface, char * buffer, int ip, char * macs, char * macd, int oper);
-void create_ipheader(char * buffer, int srcip, int destip);
-void create_udpheader(char* buffer , int srcport, int destport);
+void create_ipheader(char * buffer, int opt_size, int srcip, int destip);
+void create_udpheader(char * buffer , int opt_size, int srcport, int destport);
 void create_ethheader(void * buffer, unsigned char * smac, unsigned char * dmac, u_int16_t proto);
 
 int send_answer(void * buffer, void *iface);

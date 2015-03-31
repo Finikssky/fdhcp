@@ -114,7 +114,7 @@ int recvARP(int sock, char * iface, u_int32_t ip)
 
 int sendDHCP(int sock, char * iface, void * buffer, int size)
 {
-	if (size == 0) size = FULLHEAD_LEN + sizeof(struct dhcp_packet);
+	if (size == 0) size = FULLHEAD_LEN + DHCP_FIXED_NON_UDP + DHCP_MIN_OPTION_LEN;
 
 	if ( write(sock, buffer, size) == -1)  
 	{
