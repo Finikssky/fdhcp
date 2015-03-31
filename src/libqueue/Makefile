@@ -1,5 +1,5 @@
 headers := queue.h
-libqsources := pushmessage.c popmessage.c initsync.c deletehead.c
+libqsources := push.c pop.c init.c delete.c
 libqobj := $(libqsources:.c=.o) 
 
 CC=gcc

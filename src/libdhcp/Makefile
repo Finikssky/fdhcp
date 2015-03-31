@@ -3,7 +3,7 @@ dsources=dcrpacket.c dhcp_leases.c dhconn.c dhioctl.c dhstate.c
 dobj=$(dsources:.c=.o)
  
 CC=gcc
-CFLAGS  = -I../../include/libdhcp -I../../include/libqueue -I../../include -I../../include/libcommon
+CFLAGS  = -fPIC -I../../include/libdhcp -I../../include/libqueue -I../../include -I../../include/libcommon
 
 all: $(dobj) 
 	ar cr libdhcp.a $(dobj)

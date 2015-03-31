@@ -1,6 +1,6 @@
 #include "queue.h"
 
-int pushmessage(queue_t * queues, int qnum, void * data, size_t size)
+int push_queue(queue_t * queues, int qnum, void * data, size_t size)
 {
 	queue_t * queue   = &queues[qnum];
 	
@@ -11,6 +11,7 @@ int pushmessage(queue_t * queues, int qnum, void * data, size_t size)
 	if (temp == NULL) return -1;
 	
 	temp->next      = NULL;
+	temp->prev      = NULL;
 	temp->data      = malloc(size); 
 	temp->data_size = size;
 	memcpy(temp->data, data, size);
@@ -23,12 +24,14 @@ int pushmessage(queue_t * queues, int qnum, void * data, size_t size)
 	else
 	{
 		queue->tail->next = temp;
-		queue->tail = temp;
+		temp->prev        = queue->tail;
+		queue->tail       = temp;
 	}
 	
 	queue->elements++;
 	
-	sem_post(&queue->semid);
+	if (queue->mode == Q_TRANSPORT_MODE) 
+		sem_post(&queue->semid);
 	
  	pthread_mutex_unlock(&queue->mutex);
 	

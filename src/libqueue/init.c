@@ -1,6 +1,6 @@
 #include "queue.h"
 
-queue_t * init_queues(int count)
+queue_t * init_queues(int count, int mode)
 {
 	int i;
 	queue_t * queues = malloc(count * sizeof(queue_t)); //Инициализация массива очередей
@@ -12,7 +12,9 @@ queue_t * init_queues(int count)
 		queues[i].head     = NULL;
 		queues[i].tail     = NULL;
 		queues[i].elements = 0;
-		sem_init(&(queues[i].semid), 0, 0);
+		queues[i].mode     = mode;
+		if (mode == Q_TRANSPORT_MODE) 
+			sem_init(&(queues[i].semid), 0, 0);
 		pthread_mutex_init(&(queues[i].mutex), NULL);
 	}
 	
@@ -38,7 +40,8 @@ void uninit_queues(queue_t * queues, int count)
 	{
 		free_element(queues[i].head);
 		pthread_mutex_destroy(&(queues[i].mutex));
-		sem_destroy(&(queues[i].semid));
+		if (queues[i].mode == Q_TRANSPORT_MODE) 
+			sem_destroy(&(queues[i].semid));
 	}
 	
 	free(queues);

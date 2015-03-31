@@ -82,6 +82,7 @@ typedef struct {
 	pthread_t             fsm;
 	pthread_t             fsm_timer;
 	queue_t             * qtransport;
+	queue_t             * qsessions;
 	dserver_if_settings_t settings;
 } dserver_interface_t;
 
