@@ -63,8 +63,9 @@ int is_char_option(int option)
 int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 {
 	//printf("<%s> option: %3d ret_size: %3d\n", __FUNCTION__, option, size);
+	//TODO maybe stack overborder
 	if (ret_value == NULL) return -1;
-	if (size == 0) 		   return -1;
+	if (size <= 0) 		   return -1;
 	
 	int i;
 	memset(ret_value, 0, size);

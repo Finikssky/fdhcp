@@ -8,9 +8,9 @@
 
 typedef struct qmessage
 {
-	int            code;
-	int            size;
-	unsigned char  packet[DHCP_MTU_MAX];
+	int             code;
+	int             size;
+	unsigned char * packet;
 } qmessage_t;
 
 //SERVER

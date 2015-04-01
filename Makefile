@@ -17,6 +17,8 @@ utils:
 clean: 
 	make -C src/ clean
 	rm -f *.o
+	rm -f *.txt
+	rm -f *.lease
 	rm -f *~
 	rm -f dcc
 	rm -f dsc

@@ -224,16 +224,12 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int *
 	if (cldhcp->xid == 0) 
 	{ 
 		 cldhcp->xid = rand();
-		 #ifdef XIDSTEP
-		 cldhcp->xid = htonl(LASTRANDOM++);		
-		 #endif
-		 LASTRANDOM = LASTRANDOM % 1000000;
 	}
 	cldhcp->secs  = 0;
 	cldhcp->flags = 0x0000;
 	
-	if (dtype != DHCPACK) cldhcp->ciaddr.s_addr = 0;	
-	if (dtype != DHCPACK) cldhcp->yiaddr.s_addr = 0;
+	cldhcp->ciaddr.s_addr = 0;	
+	cldhcp->yiaddr.s_addr = 0;
 	cldhcp->siaddr.s_addr = 0;
 	cldhcp->giaddr.s_addr = 0;	
 	
@@ -242,6 +238,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int *
 		cldhcp->chaddr[2] == 0 &&
 		cldhcp->chaddr[3] == 0) set_my_mac(iface, cldhcp->chaddr);   
 
+	memset(cldhcp->options, 0, sizeof(cldhcp->options));
     //Установка магических чисел					
 	cldhcp->options[0] = 99; 
 	cldhcp->options[1] = 130;
@@ -254,7 +251,6 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int *
 	cldhcp->options[6] = dtype; 
 
 	int cnt = 7;
-	memset(cldhcp->options + cnt, 0, (sizeof(cldhcp->options) - cnt));
 	
 	if	(dtype == DHCPOFFER)
 	{
@@ -307,10 +303,11 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int *
 	}
 
 	cldhcp->options[cnt++] = 255; //Конец опций
-	memset(cldhcp->options + cnt, 0, sizeof(cldhcp->options) - cnt); //Очистка оставшегося поля пакета
 
 	if (opt_size) 
 		*opt_size = cnt * sizeof(unsigned char);
+	
+	while((*opt_size % 8) != 0) *opt_size += 1;
 
 	add_log("Succesful created DHCP packet");
 	

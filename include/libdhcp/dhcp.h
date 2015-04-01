@@ -111,20 +111,22 @@ struct arp_packet
 } __attribute__ ((packed)) ;
 
 
-struct udpheader 
-{
-	unsigned short int udph_srcport;
-	unsigned short int udph_destport;
-	unsigned short int udph_len;
-	unsigned short int udph_chksum;
-};
-
 struct ethheader
 {
 	unsigned char dmac[ETH_ALEN];
 	unsigned char smac[ETH_ALEN];
 	unsigned short type;
 }  __attribute__ ((packed));
+
+
+typedef struct frame
+{
+	struct ethheader    h_eth;
+	struct ip           h_ip;
+	struct udphdr       h_udp;
+	struct dhcp_packet  p_dhc;
+	int                 frame_size;
+} frame_t;
 
 struct dhcp_lease
 {
@@ -148,8 +150,8 @@ void create_ipheader(char * buffer, int opt_size, int srcip, int destip);
 void create_udpheader(char * buffer , int opt_size, int srcport, int destport);
 void create_ethheader(void * buffer, unsigned char * smac, unsigned char * dmac, u_int16_t proto);
 
-int send_answer(void * buffer, void *iface);
-int send_offer(void * buffer, void *iface);
-int send_nak(void * buffer, void *iface);
+int send_answer(void * info, void * iface);
+int send_offer(void * info, void * iface);
+int send_nak(void * info, void * iface);
 
 #endif
