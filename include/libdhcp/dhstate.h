@@ -46,8 +46,8 @@ struct pass
 int ptable_count;
 
 cl_session_t * search_sid(int xid, queue_t * sessions);
-cl_session_t * change_state(int xid, int dtype, qmessage_t * request, queue_t * sessions, void * interface);
-int  get_stype(int stat, qmessage_t * mess);
+cl_session_t * change_state(frame_t * request, queue_t * sessions, void * interface);
+int  get_stype(int stat, struct dhcp_packet * dhc);
 void clear_context(queue_t * sessions, void * interface);
 
 #endif

@@ -46,6 +46,9 @@
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
 
+#define BOOTP_REQUEST 1
+#define BOOTP_REPLY   2
+
 #define FULLHEAD_LEN        sizeof(struct ethhdr) + sizeof(struct ip) + sizeof(struct udphdr)
 
 #define DHCP_UDP_OVERHEAD	(20 + /* IP header */			\
@@ -118,15 +121,17 @@ struct ethheader
 	unsigned short type;
 }  __attribute__ ((packed));
 
-
-typedef struct frame
+struct frame
 {
 	struct ethheader    h_eth;
 	struct ip           h_ip;
 	struct udphdr       h_udp;
 	struct dhcp_packet  p_dhc;
-	int                 frame_size;
-} frame_t;
+	int                 d_size;
+	int                 size;
+};
+
+typedef struct frame frame_t;
 
 struct dhcp_lease
 {
@@ -144,11 +149,11 @@ struct s_dhcp_lease
 	unsigned char haddr[ETH_ALEN]; //MAC
 };
 
-u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, int * opt_size, void * arg);
+u_int32_t create_packet(char * iface, frame_t * frame, int btype, int dtype, void * arg);
 void create_arp(char * iface, char * buffer, int ip, char * macs, char * macd, int oper);
-void create_ipheader(char * buffer, int opt_size, int srcip, int destip);
-void create_udpheader(char * buffer , int opt_size, int srcport, int destport);
-void create_ethheader(void * buffer, unsigned char * smac, unsigned char * dmac, u_int16_t proto);
+void create_ipheader(frame_t * frame, int srcip, int destip);
+void create_udpheader(frame_t * frame, int srcport, int destport);
+void create_ethheader(frame_t * frame, unsigned char * smac, unsigned char * dmac, u_int16_t proto);
 
 int send_answer(void * info, void * iface);
 int send_offer(void * info, void * iface);

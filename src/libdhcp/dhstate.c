@@ -19,46 +19,54 @@ cl_session_t * search_sid(int xid, queue_t * sessions)
 }
 
 //Функция получения типа сообщения
-int get_stype(int stat, qmessage_t * mess)
+int get_stype(int stat, struct dhcp_packet * dhc)
 {
-	struct dhcp_packet * dhc = (struct dhcp_packet *)(mess->packet + FULLHEAD_LEN);
-
+	int type = -1;
+	get_option(dhc, 53, &type, sizeof(type));
+	printf("dtype of input pack: %s\n", stringize_dtype(type));
+	
 	add_log("Start validation and get signal...");
 	
 	if (stat == START)
 	{
-		if (dhc->options[6] == DHCPDISCOVER) return DHCPDISCOVER;
-		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPDISCOVER) return DHCPDISCOVER;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == OFFER)
 	{
-		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == ANSWER)
 	{
-		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
-		if (dhc->options[6] == DHCPDECLINE)  return DHCPDECLINE;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPDECLINE)  return DHCPDECLINE;
 	}
 
 	add_log("Validation fail! Unknown signal!");
 	return UNKNOWN;
 }
 
-void get_need_info(request_t * info, qmessage_t * mess)
+void get_need_info(request_t * info, frame_t * frame)
 {
 	memset(info, 0, sizeof(request_t));
 	
-	struct dhcp_packet * dhc = (struct dhcp_packet *)(mess->packet + FULLHEAD_LEN); //TODO  мб нет с все заголовки пихать в пакет
+	struct dhcp_packet * dhc = &frame->p_dhc;
 	info->xid  = dhc->xid;
 	
 	get_option(dhc, 53, &info->type, sizeof(info->type));	
-	get_option(dhc, 50, &info->req_address, sizeof(info->req_address));	
+	if (-1 == get_option(dhc, 50, &info->req_address, sizeof(info->req_address))) 
+		printf("can't get 50 opt\n");	
+	else
+	{
+		printf("requested ");
+		printip(info->req_address);
+	}
 	memcpy(info->mac, dhc->chaddr, sizeof(info->mac));
 	
-	free(mess->packet);
+	free(frame);
 }
 //Функция смены состояний, возвращает номер записи с которой мы будем работать
-cl_session_t * change_state(int xid, int dtype, qmessage_t * request, queue_t * sessions, void * interface)
+cl_session_t * change_state(frame_t * request, queue_t * sessions, void * interface)
 {
 	int num;
 	int i;
@@ -68,13 +76,13 @@ cl_session_t * change_state(int xid, int dtype, qmessage_t * request, queue_t * 
 	add_log("Changing state...");
 
 	//Получаем нужный контекст клиента
-	ses = search_sid(xid, sessions);
+	ses = search_sid(request->p_dhc.xid, sessions);
 
 	if (ses == NULL)
 	{
 		//Если клиента нет в списке добавляем новую запись
 		cl_session_t temp;
-		temp.sid   = xid;
+		temp.sid   = request->p_dhc.xid;
 		temp.state = START;
 		
 		push_queue(sessions, 0, &temp, sizeof(temp));
@@ -86,7 +94,7 @@ cl_session_t * change_state(int xid, int dtype, qmessage_t * request, queue_t * 
 	gettimeofday(&now, NULL);
 
 //Проводим валидацию сообщения с учетом текущего состояния
-	int signal = get_stype(ses->state, request);
+	int signal = get_stype(ses->state, &request->p_dhc);
 	printf("signal %d\n", signal);
 
 //В зависимости от текущего состояния и результата валидации совершаем переход

@@ -157,20 +157,19 @@ int disable_interface(dclient_interface_t * interface, int idx)
 	return 0;
 }
 
-int arp_proof(char * iface, char * buffer)
+int arp_proof(char * iface, u_int32_t addr)
 {
 	int try_cnt = 3;
-	struct dhcp_packet * dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
 	int sock = init_packet_sock(iface, ETH_P_ARP);
 	
 	while (try_cnt-- != 0)
 	{
-		if (-1 == sendARP(sock, iface, dhc->yiaddr.s_addr))
+		if (-1 == sendARP(sock, iface, addr))
 		{
 			close(sock);
 			return -1;
 		}
-		if (recvARP(sock, iface, dhc->yiaddr.s_addr)) 
+		if (recvARP(sock, iface, addr)) 
 		{ 
 			close(sock);
 			return 1;
@@ -181,21 +180,20 @@ int arp_proof(char * iface, char * buffer)
 	return 0;
 }
 
-int printDHCP(char * buffer, char * iface)
+int printDHCP(frame_t * frame, char * iface)
 {//Переделать
-	struct dhcp_packet * dhc = (struct dhcp_packet *) (buffer + FULLHEAD_LEN);
-	printf("Your offer: "); printip(dhc->yiaddr.s_addr);
+	printf("Your offer: "); printip(frame->p_dhc.yiaddr.s_addr);
 
 	u_int32_t sip = 1;
 	long time     = 1;
 	
 	//Получаем адрес сервера
-	if (-1 == get_option(dhc, 54, &sip, sizeof(sip)))   return -1;	
+	if (-1 == get_option(&frame->p_dhc, 54, &sip, sizeof(sip)))   return -1;	
 	printf("SIP "); printip(sip);		
 	
-	if (-1 == get_option(dhc, 51, &time, sizeof(time))) return -1;	
+	if (-1 == get_option(&frame->p_dhc, 51, &time, sizeof(time))) return -1;	
 	//Добавляем запись в лиз клиента		
-	add_lease(iface, dhc->yiaddr.s_addr, sip, ntohl(time));
+	add_lease(iface, frame->p_dhc.yiaddr.s_addr, sip, ntohl(time));
 	
 	return 0;
 }
@@ -286,10 +284,9 @@ void * iface_loop (void * iface)
 	dclient_interface_t * interface = (dclient_interface_t *)iface;
 	unsigned char macs[6];
 	unsigned char macd[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
-	char buf[DHCP_MTU_MAX];
+	frame_t frame; memset(&frame, 0, sizeof(frame));
 	u_int32_t myxid;
 	int ret;
-	int opt_size;
 	u_int32_t REQ_ADDR = INADDR_BROADCAST;
 
 start:
@@ -298,58 +295,59 @@ start:
 	{
 		//Собираем пакет DHCPDISCOVER и отсылаем, ждем DHCPOFFER
 		set_my_mac(interface->name, macs);
-		memset(buf, 0, sizeof(buf));
-		opt_size = 0;
-		myxid = create_packet(interface->name, buf, 1, DHCPDISCOVER, &opt_size, (void *)interface);
-		create_ethheader((void *)buf, macs, macd, ETH_P_IP);
-		create_ipheader(buf, opt_size, INADDR_ANY, INADDR_BROADCAST);
-		create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+		memset(&frame, 0, sizeof(frame));
+		myxid = create_packet(interface->name, &frame, BOOTP_REQUEST, DHCPDISCOVER, (void *)interface);
+		create_ethheader(&frame, macs, macd, ETH_P_IP);
+		create_ipheader(&frame, INADDR_ANY, INADDR_BROADCAST);
+		create_udpheader(&frame, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 		
-		sendDHCP(interface->send_sock, interface->name, (void*)buf, opt_size == 0 ? 0 : DHCP_FULL_WITHOUT_OPTIONS + opt_size ); 
-		if (recvDHCP(interface->listen_sock, interface->name, (void*)buf, DHCPOFFER, myxid ) == -1) 
+		sendDHCP(interface->send_sock, &frame, 0); 
+		if (recvDHCP(interface->listen_sock, interface->name, &frame, BOOTP_REPLY, DHCPOFFER, myxid, 5 ) == -1) 
 		{ 
 			goto start;
 		}
 
-		if (-1 == printDHCP(buf, interface->name)) goto start;
+		if (-1 == printDHCP(&frame, interface->name)) goto start;
 		REQ_ADDR = INADDR_BROADCAST;
 
 request:	
 		//Собираем пакет DHCPREQUEST и отсылаем, ждем ACK|NAK
-		opt_size = 0;
 		printip(REQ_ADDR);
 		set_my_mac(interface->name, macs);	
-		create_packet(interface->name, buf, 1, DHCPREQUEST, &opt_size, (void *)interface);
-		create_ethheader((void *)buf, macs, macd, ETH_P_IP);
-		create_ipheader(buf, opt_size, INADDR_ANY, REQ_ADDR);
-		create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+		memset(&frame, 0, sizeof(frame));
+		create_packet(interface->name, &frame, BOOTP_REQUEST, DHCPREQUEST, (void *)interface);
+		frame.p_dhc.xid = myxid; //important
+		create_ethheader(&frame, macs, macd, ETH_P_IP);
+		create_ipheader(&frame, INADDR_ANY, REQ_ADDR);
+		create_udpheader(&frame, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 	 
-		sendDHCP(interface->send_sock, interface->name, (void*)buf, opt_size == 0 ? 0 : DHCP_FULL_WITHOUT_OPTIONS + opt_size ); 
-		if (recvDHCP(interface->listen_sock, interface->name, (void*)buf, DHCPACK, myxid ) == -1) 
+		sendDHCP(interface->send_sock, &frame, 0); 
+		if (recvDHCP(interface->listen_sock, interface->name, &frame, BOOTP_REPLY, DHCPACK, myxid, 5 ) == -1) 
 		{
 			goto start;
 		}
 		
 		REQ_ADDR = INADDR_BROADCAST;
-		if (-1 == printDHCP(buf, interface->name)) goto start;	
+		if (-1 == printDHCP(&frame, interface->name)) goto start;	
 	
 		//Посылаем проверочный ARP-запрос, в случае неудачи отсылаем DHCPDECLINE
-		if (arp_proof(interface->name, buf) == 0) break;
+		if (arp_proof(interface->name, frame.p_dhc.yiaddr.s_addr) == 0) break;
 		else
 		{
-			opt_size = 0;
 			set_my_mac(interface->name, macs);
-			create_packet(interface->name, buf, 1, DHCPDECLINE, &opt_size, (void *)interface);
-			create_ethheader((void *)buf, macs, macd, ETH_P_IP);
-			create_ipheader(buf, opt_size, INADDR_ANY, INADDR_BROADCAST);
-			create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
-			sendDHCP(interface->send_sock, interface->name, (void*)buf, opt_size == 0 ? 0 : DHCP_FULL_WITHOUT_OPTIONS + opt_size);
+			memset(&frame, 0, sizeof(frame));
+			create_packet(interface->name, &frame, BOOTP_REQUEST, DHCPDECLINE, (void *)interface);
+			frame.p_dhc.xid = myxid; //important
+			create_ethheader(&frame, macs, macd, ETH_P_IP);
+			create_ipheader(&frame, INADDR_ANY, INADDR_BROADCAST);
+			create_udpheader(&frame, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+			sendDHCP(interface->send_sock, &frame, 0);
 		}
 	
 	}	
 	
 	//Применяем полученную конфигурацию на интерфейс
-	apply_interface_settings(buf, interface->name);
+	apply_interface_settings(&frame, interface->name);
 	
 	while(1)
 	{

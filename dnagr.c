@@ -14,7 +14,7 @@ char * ename;
 
 void * reply(void * arg)
 {
-	char buf[DHCP_MTU_MAX];
+	frame_t frame; 
 	int rep_sock = init_packet_sock(ename, ETH_P_ALL);
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
@@ -24,14 +24,14 @@ void * reply(void * arg)
 		gettimeofday(&now, NULL);
 		
 		if ( (now.tv_sec - st.tv_sec) > 5 ) break;
+		memset(&frame, 0, sizeof(frame));
 		
-		recvfrom(rep_sock, buf, DHCP_MTU_MAX, 0, NULL, 0);
-		struct dhcp_packet * dhc = (struct dhcp_packet *) (buf + FULLHEAD_LEN);
+		recvDHCP(interface->listen_sock, NULL, &frame, BOOTP_REPLY, 0, 0, 0);
 		
-		if (dhc->op == 2)  
+		if (frame.p_dhc.op == 2)  
 		{
 			unsigned char type;
-			if (-1 == get_option(dhc, 53, &type, sizeof(type))) continue;
+			if (-1 == get_option(&frame.p_dhc, 53, &type, sizeof(type))) continue;
 			if (type != DHCPOFFER) continue;
 			
 			REPLYES++;
@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
 	REPLYES       = 0;
 	double correct = 0;
 
-	char buf[DHCP_MTU_MAX];
+	frame_t frame; memset(&frame, 0, sizeof(frame));
 
 	if (argc > 1) 
 		ename = argv[1];
@@ -69,16 +69,13 @@ int main(int argc, char* argv[])
 
 	int sock = init_packet_sock(ename, ETH_P_IP);
 
-	struct dhcp_packet *dhc;
-
 	set_my_mac(ename, macs);
-	memset(buf, 0, sizeof(buf));
+	
 
-	int opt_size = 0;
-	create_packet(ename, buf, 1, DHCPDISCOVER, &opt_size, NULL);
-	create_ethheader(buf, macs, macd, ETH_P_IP);
-	create_ipheader(buf, opt_size, INADDR_ANY, INADDR_BROADCAST);
-	create_udpheader(buf, opt_size, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+	create_packet(ename, &frame, 1, DHCPDISCOVER, NULL);
+	create_ethheader(&frame, macs, macd, ETH_P_IP);
+	create_ipheader(&frame, INADDR_ANY, INADDR_BROADCAST);
+	create_udpheader(&frame, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 	
 	gettimeofday(&start, NULL);
 	
@@ -89,20 +86,12 @@ int main(int argc, char* argv[])
 		usleep(DELAY * 1000);
 		
 		correct += 1.0 * DELAY * 1000 / 1000000;
-		
-		dhc = ( struct dhcp_packet * )(buf + FULLHEAD_LEN);
+
 		//printf("XID: %d\n",myxid);
-		dhc->xid = LASTRANDOM++;
+		frame.p_dhc.xid = LASTRANDOM++;
 		LASTRANDOM %= 1000000;		
 
-		//sendDHCP(ename,(void*)buf,0); 
-		if ( write( sock, buf, DHCP_FULL_WITHOUT_OPTIONS + opt_size) == -1 )  
-		{
-			perror("Error: send ");
-			close(sock);
-			exit(1);
-		}
-
+		sendDHCP(ename, &frame, 0); 
 	 }	
 	 
 	pthread_join(rep_t, NULL);

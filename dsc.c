@@ -278,35 +278,31 @@ int send_offer(void * info, void * arg)
 	if (info == NULL) return -1;
 	if (arg  == NULL) return -1;
 	
-	int opt_size = 0;
 	unsigned char macs[6];
-	char buffer[1501] = {0};
+	frame_t frame; memset(&frame, 0, sizeof(frame));
 	request_t * request              = (request_t *)info;
 	dserver_interface_t * interface  = (dserver_interface_t *) arg;
-	struct dhcp_packet * dhc         = (struct dhcp_packet *) ( buffer + FULLHEAD_LEN );
 	
 	add_log("Sending DHCPOFFER..");
 
 	set_my_mac(interface->name, macs);	
-	dhc->xid = request->xid;
+	frame.p_dhc.xid = request->xid;
 	
-	if (-1 == create_packet(interface->name, buffer, 2, DHCPOFFER, &opt_size, interface)) 
+	if (-1 == create_packet(interface->name, &frame, 2, DHCPOFFER, interface)) 
 	{	
 		perror("create dhc packet:");
 		return -1;
 	}
 	
 	
-	create_ethheader(buffer, macs, request->mac, ETH_P_IP);
-	create_ipheader(buffer, opt_size, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-	create_udpheader(buffer, opt_size, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
-
-	int len = DHCP_FULL_WITHOUT_OPTIONS + opt_size;
+	create_ethheader(&frame, macs, request->mac, ETH_P_IP);
+	create_ipheader(&frame, get_iface_ip(interface->name), frame.p_dhc.yiaddr.s_addr);
+	create_udpheader(&frame, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
  
 	qmessage_t message;
-	message.size = len;
-	message.packet = malloc(len * sizeof(unsigned char));
-	memcpy(message.packet, buffer, len);
+	message.size = frame.size;
+	message.packet = malloc(message.size);
+	memcpy(message.packet, &frame, message.size);
 	push_queue(interface->qtransport, 1, &message, sizeof(message));
 	
 	add_log("DHCPOFFER sended!");
@@ -318,30 +314,26 @@ int send_nak(void * info, void * arg)
 	if (info == NULL) return -1;
 	if (arg == NULL)  return -1;
 	
-	int opt_size = 0;
-	char buffer[DHCP_MTU_MAX] = {0};
+	frame_t frame; memset(&frame, 0, sizeof(frame));
 	unsigned char macs[6];
 	unsigned char macb[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 	dserver_interface_t * interface  = (dserver_interface_t *) arg;
 	request_t * request              = (request_t *)info;
-	struct dhcp_packet * dhc         = (struct dhcp_packet *) ( buffer + FULLHEAD_LEN );
 		
 	add_log("Sending DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
-	dhc->xid = request->xid;
+	frame.p_dhc.xid = request->xid;
 
-	create_packet(interface->name, buffer, 2, DHCPNAK, &opt_size, (void *)interface);
-	create_ethheader(buffer, macs, macb, ETH_P_IP);
-	create_ipheader(buffer, opt_size, get_iface_ip(interface->name), INADDR_BROADCAST);
-	create_udpheader(buffer, opt_size, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
+	create_packet(interface->name, &frame, 2, DHCPNAK, (void *)interface);
+	create_ethheader(&frame, macs, macb, ETH_P_IP);
+	create_ipheader(&frame, get_iface_ip(interface->name), INADDR_BROADCAST);
+	create_udpheader(&frame, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 	
-	int len = DHCP_FULL_WITHOUT_OPTIONS + opt_size;
-
 	qmessage_t message;
-	message.size = len;
-	message.packet = malloc(len);
-	memcpy(message.packet, buffer, len);
+	message.size = frame.size;
+	message.packet = malloc(message.size);
+	memcpy(message.packet, &frame, message.size);
 	push_queue(interface->qtransport, 1, &message, sizeof(message));
 
 	add_log("DHCPNAK sended!");
@@ -354,47 +346,43 @@ int send_answer(void * info, void * arg)
 	if (arg == NULL)  return -1;
 	
 	long ltime   = 0;
-	int opt_size = 0;
 	unsigned char macs[6];
 	unsigned char macb[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	char buffer[DHCP_MTU_MAX]        = {0};
-	struct dhcp_packet  * dhc        = ( struct dhcp_packet * ) (buffer + FULLHEAD_LEN);
+	frame_t frame; memset(&frame, 0, sizeof(frame));
 	dserver_interface_t * interface  = (dserver_interface_t *) arg;
 	request_t * request              = (request_t *)info;
 
 	add_log("Sending DHCPACK/DHCPNAK..");
 
 	set_my_mac(interface->name, macs);
-	dhc->xid = request->xid;
+	frame.p_dhc.xid = request->xid;
 
 	//Проверяем доступен ли адрес
 	int result = get_proof(request->mac, &request->req_address);
 	if (result > 0) 
 	{	
 		//В случае положительного ответа отправляем АСК
-		ltime = create_packet(interface->name, buffer, 2, DHCPACK, &opt_size, (void *)interface);
+		ltime = create_packet(interface->name, &frame, 2, DHCPACK, (void *)interface);
 		if (ltime == -1) return -1;
-		create_ethheader(buffer, macs, request->mac, ETH_P_IP);		
-		create_ipheader(buffer, opt_size, get_iface_ip(interface->name), dhc->yiaddr.s_addr);
-		s_add_lease(interface, dhc->yiaddr.s_addr, dhc->chaddr, ltime); //TODO refactoring lease_time
+		create_ethheader(&frame, macs, request->mac, ETH_P_IP);		
+		create_ipheader(&frame, get_iface_ip(interface->name), frame.p_dhc.yiaddr.s_addr);
+		s_add_lease(interface, frame.p_dhc.yiaddr.s_addr, request->mac, ltime); //TODO refactoring lease_time
 	}
 	else if (result == 0)  
 	{	
 		//В случае отрицательного ответа отправляем NAK
-		create_packet(interface->name, buffer, 2, DHCPNAK, &opt_size, (void *) interface);
-		create_ethheader(buffer, macs, macb, ETH_P_IP);
-		create_ipheader(buffer, opt_size, get_iface_ip(interface->name), INADDR_BROADCAST);
+		create_packet(interface->name, &frame, 2, DHCPNAK, (void *) interface);
+		create_ethheader(&frame, macs, macb, ETH_P_IP);
+		create_ipheader(&frame, get_iface_ip(interface->name), INADDR_BROADCAST);
 	}
 	else if (result == -1) return -1;
 
-	create_udpheader(buffer, opt_size, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
+	create_udpheader(&frame, DHCP_SERVER_PORT, DHCP_CLIENT_PORT);
 	
-	int len = DHCP_FULL_WITHOUT_OPTIONS + opt_size;
-
 	qmessage_t message;
-	message.size = len;
-	message.packet = malloc(len);
-	memcpy(message.packet, buffer, len);
+	message.size = frame.size;
+	message.packet = malloc(message.size);
+	memcpy(message.packet, &frame, message.size);
 	push_queue(interface->qtransport, 1, &message, sizeof(message));
 
 	add_log("DHCPACK/DHCPNAK sended!");
@@ -403,44 +391,31 @@ int send_answer(void * info, void * arg)
 
 void * s_recvDHCP(void * arg)
 {
-
 	dserver_interface_t * interface = (dserver_interface_t *)arg;
-	int                   bytes;
-	struct ethheader    * eth;
-	struct dhcp_packet  * dhc;
-	char                  buffer[DHCP_MTU_MAX];
+	frame_t frame;
 
 	add_log("Start server receiving thread!");
 
 	while(1)
 	{
-		memset(buffer, 0, sizeof(buffer));
+		memset(&frame, 0, sizeof(frame));
 		
-		bytes = recvfrom(interface->listen_sock, buffer, DHCP_MTU_MAX, 0, NULL, 0);
-		if (bytes == -1)
-		{
-			perror("<s_recvDHCP> recvfrom");
-		}
-		if (bytes < DHCP_FIXED_NON_UDP || bytes > DHCP_MAX_OPTION_LEN) continue;
+		recvDHCP(interface->listen_sock, NULL, &frame, BOOTP_REQUEST, 0, 0, 0);
+		
+		printf("DHCP REQUEST:\n");
+		printf("   FRAME SIZE: %d\n", frame.size); 
+		printf("   DTYPE: %s\n", stringize_dtype(frame.p_dhc.options[6]));
+		printf("   SRC   "); printmac(frame.h_eth.smac);
+		printf("   DST   ");   printmac(frame.h_eth.dmac);
+		fflush(stdout);
 
-		eth = (struct ethheader*) buffer;
-		printf("\nrecv %d bytes\n", bytes); fflush(stdout);
-		printf("source  "); printmac(eth->smac);
-		printf("dest  ");   printmac(eth->dmac);
-
-		dhc = (struct dhcp_packet *) (buffer + FULLHEAD_LEN);
-		if (dhc->op == 1) 
-		{
-			printf("I think this is dhcp-request\n");
-			
-			qmessage_t message;
-			message.code   = STEP;
-			message.size   = bytes;
-			message.packet = malloc(bytes); 
-			memcpy(message.packet, buffer, message.size);
-			
-			push_queue(interface->qtransport, 0, &message, sizeof(message));				//Помещаем в очередь
-		}
+		qmessage_t message;
+		message.code   = STEP;
+		message.size   = frame.size;
+		message.packet = malloc(frame.size); 
+		memcpy(message.packet, &frame, message.size);
+		
+		push_queue(interface->qtransport, 0, &message, sizeof(message));				//Помещаем в очередь
 	}
 }
 
@@ -455,7 +430,7 @@ void * s_replyDHCP(void * arg)
 	{
 		add_log("SEND_SERVER_REPLY");
 		pop_queue(interface->qtransport, 1, &reply, sizeof(reply));
-		sendDHCP(interface->send_sock, interface->name, reply.packet, reply.size); //TODO correct size
+		sendDHCP(interface->send_sock, (frame_t *)reply.packet, reply.size); //TODO correct size
 		free(reply.packet);
 	}
 }
@@ -482,9 +457,9 @@ void * s_fsmDHCP(void * arg)
 		
 		if (request.code == STEP) 
 		{
-			struct dhcp_packet * dhc = (struct dhcp_packet *) (request.packet + FULLHEAD_LEN);
+			frame_t * t = (frame_t *)request.packet;
 			//Делаем шаг автомата
-			change_state(dhc->xid, dhc->options[6], &request, interface->qsessions, (void *) interface);
+			change_state(t, interface->qsessions, (void *) interface);
 		}
 		if (request.code == TIME)  
 		{	
