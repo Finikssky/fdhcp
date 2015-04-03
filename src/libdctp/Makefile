@@ -1,9 +1,6 @@
 headers=dctp.h	
 dsources=dctp.c 
 dobj=$(dsources:.c=.o)
- 
-CC = gcc
-CFLAGS  = -fPIC -I../../include/libdctp -I../../include/libdhcp -I../../include/libqueue
 
 all: $(dobj) 
 	ar cr libdctp.a $(dobj)
@@ -12,7 +9,7 @@ all: $(dobj)
 	cp libdctp.a ../../libs/libdctp.a
 
 %.o:%.c $(headers)
-	$(CC) $(CFLAGS) -fPIC -c $*.c -o $*.o
+	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
 clean: 
 	rm -f *.o

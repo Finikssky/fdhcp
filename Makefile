@@ -1,18 +1,27 @@
 CC = gcc
-CFLAGS = -I./include/libqueue -I./include/libdhcp -I./include/libdctp -I./include/libtimer -I./include -I./include/libcommon -Wall -O3
- 
+IDIR = $(PWD)/include
+
+AFLAGS += -Wall -O3 -fPIC
+IFLAGS += -I$(IDIR)
+CFLAGS += $(AFLAGS) $(IFLAGS) $(UFLAGS)
+LFLAGS += -L./libs
+
+dcc_LDADD = -ldyndctp -ldyndhcp -ldynqueue -ldyncommon -lpthread
+dsc_LDADD = -ldyndctp -ldyndhcp -ldynqueue -ldyntimer -ldyncommon -lpthread
+sender_LDADD = -ldyndctp -ldyncommon
+ntest_LDADD = -ldyndhcp -ldynqueue -ldyncommon -lpthread
+
 all: 
-	make -C src/
-	$(CC) $(CFLAGS) -o dcc dcc.c -L./libs -ldyndctp -ldyndhcp -ldynqueue -ldyncommon -lpthread
-	$(CC) $(CFLAGS) -o dsc dsc.c -L./libs -ldyndctp -ldyndhcp -ldynqueue -ldyntimer -ldyncommon -lpthread
+	make CC="$(CC)" CFLAGS="$(CFLAGS)" -C src/ all
+	$(CC) $(CFLAGS) -o dcc dcc.c $(LFLAGS) $(dcc_LDADD)
+	$(CC) $(CFLAGS) -o dsc dsc.c $(LFLAGS) $(dsc_LDADD)
 
-debug:
-	make CFLAGS="$(CFLAGS) -g" all
-
+debug: clean
+	make UFLAGS='-g' all
 
 utils:
-	$(CC) $(CFLAGS) -o sender sender.c -L./libs -ldyndctp -ldyncommon
-	$(CC) $(CFLAGS) -o test_nagr dnagr.c -L./libs -ldyndhcp -ldynqueue -ldyncommon -lpthread
+	$(CC) $(CFLAGS) -o sender sender.c $(LFLAGS) $(sender_LDADD)
+	$(CC) $(CFLAGS) -o test_nagr dnagr.c $(LFLAGS) $(ntest_LDADD)
 
 clean: 
 	make -C src/ clean

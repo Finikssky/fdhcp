@@ -1,7 +1,11 @@
-#include "dctp.h"
-#include "dhcp.h"
+#include "libdctp/dctp.h"
+#include "libdhcp/dhcp.h"
 
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/select.h>
+#include <sys/time.h>
 
 int recv_timeout_DCTP(int sock, void * buf, int timeout, struct sockaddr * sender, size_t * size)
 {
@@ -119,7 +123,7 @@ int init_DCTP_socket(int port)
 
 int release_DCTP_socket(int sock)
 {
-	close(sock);
+	return close(sock);
 }
 
 int receive_DCTP_PACKET(int sock, void * buffer, struct sockaddr_in * sender, int timeout) 
@@ -171,7 +175,7 @@ int receive_DCTP_command(int sock, DCTP_COMMAND_PACKET * pack, struct sockaddr_i
 	
 	while(1)
 	{	
-		int bytes = receive_DCTP_PACKET(sock, pack, sender, 0);
+		receive_DCTP_PACKET(sock, pack, sender, 0);
 		if (pack->packet.type == DCTP_MSG_COMM)
 		{  
 			if (pack->packet.csum != create_csum((u_int8_t*)&pack->payload, sizeof(pack->payload)))

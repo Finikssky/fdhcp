@@ -1,4 +1,5 @@
-#include "queue.h"
+#include "libqueue/queue.h"
+#include <string.h>
 
 int push_queue(queue_t * queues, int qnum, void * data, size_t size)
 {

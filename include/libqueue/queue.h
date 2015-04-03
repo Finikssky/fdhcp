@@ -3,11 +3,8 @@
 
 #define DEBUG
 
-#include <semaphore.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <pthread.h>
-#include <string.h>
+#include <semaphore.h>
 
 #define Q_TRANSPORT_MODE 0
 #define Q_STANDART_MODE  1

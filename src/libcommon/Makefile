@@ -1,9 +1,6 @@
 headers=common.h
 dsources=common.c
 dobj=$(dsources:.c=.o)
- 
-CC=gcc
-CFLAGS  = -I../../include/libdhcp -I../../include/libqueue -I../../include/libcommon
 
 all: $(dobj) 
 	ar cr libcommon.a $(dobj)
@@ -12,7 +9,7 @@ all: $(dobj)
 	cp libcommon.a ../../libs/libcommon.a
 
 %.o:%.c $(headers)
-	$(CC) $(CFLAGS) -fPIC -c $*.c -o $*.o
+	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
 clean: 
 	rm -f *.o

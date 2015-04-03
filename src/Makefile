@@ -1,10 +1,10 @@
 
 all:
-	make -C libtimer
-	make -C libcommon
-	make -C libqueue
-	make -C libdhcp
-	make -C libdctp
+	make CC="$(CC)" CFLAGS="$(CFLAGS)" -C libtimer
+	make CC="$(CC)" CFLAGS="$(CFLAGS)" -C libcommon
+	make CC="$(CC)" CFLAGS="$(CFLAGS)" -C libqueue
+	make CC="$(CC)" CFLAGS="$(CFLAGS)" -C libdhcp
+	make CC="$(CC)" CFLAGS="$(CFLAGS)" -C libdctp
 	
 clean:
 	make -C libtimer clean

@@ -1,10 +1,14 @@
-#include "dhstate.h"
 #include "core.h"
+#include "libdhcp/dhstate.h"
+#include "libdhcp/dhioctl.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 //Функция поиска записи с заданный идентификатором
 cl_session_t * search_sid(int xid, queue_t * sessions)
 {
-	int i;
 	add_log("Searshing sid...");
 
 	qelement_t * iter;
@@ -68,7 +72,6 @@ void get_need_info(request_t * info, frame_t * frame)
 //Функция смены состояний, возвращает номер записи с которой мы будем работать
 cl_session_t * change_state(frame_t * request, queue_t * sessions, void * interface)
 {
-	int num;
 	int i;
 	struct timeval now;
 	cl_session_t * ses;
@@ -171,7 +174,6 @@ void clear_context(queue_t * sessions, void * interface)
 								break;
 							}
 						}
-						dserver_interface_t * ifs = (dserver_interface_t *)interface;
 					}
 					break;
 					

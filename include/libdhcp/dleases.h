@@ -1,7 +1,6 @@
 #ifndef DLEASE_H 
 #define DLEASE_H
-#include "dhcp.h"
-#include "common.h"
+
 #include "core.h"
 
 void clear_lease();

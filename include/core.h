@@ -1,7 +1,10 @@
 #ifndef CORE_H
 #define CORE_H
 
-#include "common.h"
+#include "libcommon/common.h"
+#include "libqueue/queue.h"
+
+#include <arpa/inet.h>
 
 #define MAX_INTERFACES 32
 #define IFNAMELEN      32
