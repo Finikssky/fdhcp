@@ -164,7 +164,7 @@ int recvDHCP(int sock, char * iface, frame_t * frame, int bootp_type, int dhc_ty
 		
 		if (frame->size == -1) 
 		{ 
-			printf("TIMEOUT\n");
+			perror("recv");
 			return -1;
 		}
 

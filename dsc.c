@@ -356,6 +356,7 @@ int send_answer(void * info, void * arg)
 
 	set_my_mac(interface->name, macs);
 	frame.p_dhc.xid = request->xid;
+	frame.p_dhc.yiaddr.s_addr = request->req_address;
 
 	//Проверяем доступен ли адрес
 	int result = get_proof(request->mac, &request->req_address);
@@ -401,6 +402,7 @@ void * s_recvDHCP(void * arg)
 		memset(&frame, 0, sizeof(frame));
 		
 		recvDHCP(interface->listen_sock, NULL, &frame, BOOTP_REQUEST, 0, 0, 0);
+		if (frame.size == -1) continue;
 		
 		printf("DHCP REQUEST:\n");
 		printf("   FRAME SIZE: %d\n", frame.size); 

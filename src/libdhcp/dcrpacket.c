@@ -228,8 +228,8 @@ u_int32_t create_packet(char * iface, frame_t * frame, int btype, int dtype, voi
 	frame->p_dhc.flags = 0x0000;
 	
 	frame->p_dhc.ciaddr.s_addr = 0;	
-	frame->p_dhc.yiaddr.s_addr = 0;
-	frame->p_dhc.siaddr.s_addr = 0;
+	if (dtype != DHCPACK) frame->p_dhc.yiaddr.s_addr = 0;
+	if (dtype != DHCPACK) frame->p_dhc.siaddr.s_addr = 0;
 	frame->p_dhc.giaddr.s_addr = 0;	
 	
 	if (btype == BOOTP_REQUEST) set_my_mac(iface, frame->p_dhc.chaddr);   
