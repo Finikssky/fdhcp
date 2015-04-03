@@ -1,7 +1,7 @@
 #ifndef DCTP_H
 #define DCTP_H
 
-#include "dhcp.h"
+#include <netinet/in.h>
 
 #define DCTP_DEBUG 0
 

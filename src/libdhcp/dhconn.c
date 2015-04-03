@@ -1,5 +1,12 @@
-#include "dhconn.h"
-#include "dleases.h"
+#include "libdhcp/dhcp.h"
+#include "libdhcp/dhconn.h"
+#include "libdhcp/dleases.h"
+#include "libdhcp/dhioctl.h"
+
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
 
 //init packet socket on interface ethName
 int init_packet_sock(char *ethName, u_int16_t protocol)
@@ -37,8 +44,8 @@ int init_packet_sock(char *ethName, u_int16_t protocol)
 int sendARP(int sock, char * iface, u_int32_t ip)
 {
 	char buf[120];
-	char macs[6];
-	char macd[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};	
+	unsigned char macs[6];
+	unsigned char macd[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};	
 
 	set_my_mac(iface, macs);
 	
@@ -134,8 +141,6 @@ int sendDHCP(int sock, frame_t * frame, int size)
 //waiting dhcp-reply packet 
 int recvDHCP(int sock, char * iface, frame_t * frame, int bootp_type, int dhc_type, u_int32_t transid, int timeout)
 {
-	int bytes;
-	int falsecnt = 0;
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
 

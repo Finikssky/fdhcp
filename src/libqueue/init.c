@@ -1,4 +1,5 @@
-#include "queue.h"
+#include "libqueue/queue.h"
+#include <stdlib.h>
 
 queue_t * init_queues(int count, int mode)
 {

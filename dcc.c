@@ -1,8 +1,14 @@
-#include "dhcp.h"
-#include "dctp.h"
-#include "dhconn.h"
-#include "dhioctl.h"
-#include "dleases.h"
+#include "libdhcp/dhcp.h"
+#include "libdhcp/dhconn.h"
+#include "libdhcp/dhioctl.h"
+#include "libdhcp/dleases.h"
+
+#include "libdctp/dctp.h"
+
+#include <unistd.h>	
+#include <string.h>
+#include <stdlib.h>
+
 #include <pthread.h>
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -351,7 +357,7 @@ request:
 	
 	while(1)
 	{
-		sleep(20);
+		usleep(20000000);
 	
 		//Получаем состояние аренды
 		ret = get_lease(interface->name, (unsigned char *)NULL, (unsigned char *)&REQ_ADDR);

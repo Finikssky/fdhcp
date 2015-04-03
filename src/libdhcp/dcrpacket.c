@@ -1,6 +1,10 @@
-#include "dhcp.h"
+#include "libdhcp/dhcp.h"
+#include "libdhcp/dleases.h"
+#include "libdhcp/dhioctl.h"
 #include "core.h"
-#include "dleases.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 //Подсчет контрольной суммы для IP и UDP заголовков
 u_int32_t checksum (buf, nbytes, sum)
@@ -35,7 +39,7 @@ u_int32_t wrapsum (sum)
 	return htons(sum);
 }
 
-int create_server_options(char * options, dserver_subnet_t * subnet, dserver_interface_t * interface, long * ltime)
+int create_server_options(unsigned char * options, dserver_subnet_t * subnet, dserver_interface_t * interface, long * ltime)
 {
 	int cnt = 0;
 	
@@ -135,7 +139,7 @@ int create_server_options(char * options, dserver_subnet_t * subnet, dserver_int
 	return cnt;
 }
 
-int create_offer(void * iface, char * options, u_int32_t * y_addr, long * ltime)
+int create_offer(void * iface, unsigned char * options, u_int32_t * y_addr, long * ltime)
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
@@ -174,7 +178,7 @@ int create_offer(void * iface, char * options, u_int32_t * y_addr, long * ltime)
 	return (cnt + 7);
 }
 
-int create_ack( void * iface, char * options, u_int32_t * y_addr , long * ltime)
+int create_ack( void * iface, unsigned char * options, u_int32_t * y_addr , long * ltime)
 {	
 	add_log(__FUNCTION__);
 	int cnt = 0;
@@ -372,7 +376,7 @@ void create_ethheader(frame_t * frame, unsigned char * macs, unsigned char * mac
 	add_log("Succesful created ETHERNET header");
 }
 
-void create_arp(char * iface, char *buffer, int ip, char *macs, char *macd, int oper)
+void create_arp(char * iface, char * buffer, int ip, unsigned char * macs, unsigned char * macd, int oper)
 {
 	
 	struct arp_packet * arp = (struct arp_packet *)(buffer + sizeof(struct ethheader));

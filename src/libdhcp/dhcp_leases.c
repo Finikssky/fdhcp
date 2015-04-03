@@ -1,10 +1,15 @@
-#include "dleases.h"
+#include "libdhcp/dhcp.h"
+#include "libdhcp/dleases.h"
+#include "libdhcp/dhioctl.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 //Функция очистки базы от устаревших записей
 void clear_lease()
 {
 	FILE *fd, *newfd;
-	unsigned char *iter;
 	struct s_dhcp_lease lease;
 	struct timeval tv;
 	int exist;
@@ -23,7 +28,7 @@ void clear_lease()
 	newfd = fopen("~s_dhcp.lease", "w+");
 
 	//Читаем записи из базы и записываем действительные во временный файл
-	while(fread(&lease, sizeof(lease), 1, fd))
+	while (fread(&lease, sizeof(lease), 1, fd))
 	{
 		gettimeofday(&tv, NULL);
 		if (lease.stime + lease.ltime > tv.tv_sec) 
@@ -35,9 +40,11 @@ void clear_lease()
 	fclose(fd);
 	fclose(newfd);
 
-	system("mv s_dhcp.lease temp");
-	system("mv ~s_dhcp.lease s_dhcp.lease");
-	system("mv temp ~s_dhcp.lease");
+	exist = 0 + system("mv s_dhcp.lease temp");
+	exist += system("mv ~s_dhcp.lease s_dhcp.lease");
+	exist += system("mv temp ~s_dhcp.lease");
+	if (exist != 0) 
+		printf("clear lease error: file");
 
 	add_log("Lease base succsecful cleared.");
 }
@@ -47,7 +54,6 @@ void clear_lease()
 int in_lease(int ip)
 {
 	FILE *fd;
-	unsigned char * iter;
 	struct s_dhcp_lease lease,ret;
 	struct timeval tv;
 	int exist;
@@ -171,7 +177,7 @@ int get_proof(unsigned char * mac, u_int32_t * address)
 		add_log("REPLAY LEASE ");
 		return 1;
 	} //Запись действительна и имеет тот же мак что у клиента
-	else if (0 == memcmp(ret.haddr, mac, ETH_ALEN)) 
+	else if (0 == memcmp(ret.haddr, mac, sizeof(ret.haddr))) 
 	{
 		printf("REPLAY LEASE BY MAC \n");
 		fclose(fd);
@@ -239,7 +245,7 @@ int get_lease(char * iface, unsigned char * cip, unsigned char * sip)
 		return -1;
 	}
 
-	fread(&lease, sizeof(lease), 1, fd);
+	if (-1 == fread(&lease, sizeof(lease), 1, fd)) return -1;
 
 	if (cip != NULL) memcpy(cip, &lease.cip, sizeof(lease.cip));
 	if (sip != NULL) memcpy(sip, &lease.sip, sizeof(lease.sip));

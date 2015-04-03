@@ -1,4 +1,9 @@
-#include "dhioctl.h"
+#include "libdhcp/dhioctl.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/time.h>
 
 //Печатаем  IP
 void printip(u_int32_t ip)
@@ -222,8 +227,6 @@ int apply_interface_settings(frame_t * frame, char * iface)
 	struct ifreq ifr;
 	struct sockaddr_in sai;
 	int sockfd;                     
-	int selector;
-	unsigned char mask;
 	char * p;
 	int hres = -1;
 

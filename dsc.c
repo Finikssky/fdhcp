@@ -1,17 +1,24 @@
-#include "dhcp.h"
-#include "dctp.h"
-#include "dhconn.h"
-#include "dhioctl.h"
-#include "dhstate.h"
-#include "dleases.h"
-#include "timer.h"
+#include "libdhcp/dhcp.h"
+#include "libdhcp/dhconn.h"
+#include "libdhcp/dhioctl.h"
+#include "libdhcp/dhstate.h"
+#include "libdhcp/dleases.h"
+
+#include "libdctp/dctp.h"
+#include "libtimer/timer.h"
+#include "libcommon/common.h"
+
+#include "core.h"
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include <pthread.h>
 #include <limits.h>
 #include <net/if.h>
 #include <ifaddrs.h>
-
-#include "core.h"
-#include "common.h"
 
 #define PTABLE_COUNT   9
 #define S_CONFIG_FILE "dsc.conf"
@@ -580,7 +587,7 @@ int disable_interface(dserver_interface_t * interface, int idx)
 	return 0;
 }
 
-void init_ptable(int size)
+void init_ptable(int size) //TODO release ptable
 {
 	ptable_count = size;
 	ptable = realloc(ptable, size * sizeof(struct  pass));

@@ -1,4 +1,5 @@
-#include "queue.h"
+#include "libqueue/queue.h"
+#include <stdlib.h>
 
 int delete_ptr(queue_t * queue, qelement_t * p)
 {

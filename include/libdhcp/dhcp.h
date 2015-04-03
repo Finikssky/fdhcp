@@ -1,16 +1,5 @@
 #ifndef DHCP_H
 #define DHCP_H
-//#define XIDSTEP
-
-#include "queue.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <netdb.h>
-#include <signal.h>
-#include <fcntl.h>
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -32,9 +21,6 @@
 
 #include <errno.h>
 #include <arpa/inet.h>
-
-#include <string.h>
-#include <strings.h>
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -150,7 +136,7 @@ struct s_dhcp_lease
 };
 
 u_int32_t create_packet(char * iface, frame_t * frame, int btype, int dtype, void * arg);
-void create_arp(char * iface, char * buffer, int ip, char * macs, char * macd, int oper);
+void create_arp(char * iface, char * buffer, int ip, unsigned char * macs, unsigned char * macd, int oper);
 void create_ipheader(frame_t * frame, int srcip, int destip);
 void create_udpheader(frame_t * frame, int srcport, int destport);
 void create_ethheader(frame_t * frame, unsigned char * smac, unsigned char * dmac, u_int16_t proto);
