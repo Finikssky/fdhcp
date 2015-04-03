@@ -118,10 +118,9 @@ int try_give_ip(ip_address_range_t * range)
 }
 
 //Проверка, можем ли мы выдать запрашиваемый адрес
-int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
+int get_proof(unsigned char * mac, u_int32_t * address)
 {
 	FILE * fd;
-	char * iter;
 	struct s_dhcp_lease lease, ret;
 	struct timeval tv;
 	int exist;
@@ -129,10 +128,6 @@ int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 	add_log("Search requested IP in lease...");
 
 	memset(&lease, 0, sizeof(lease));
-	iter = dhc->options + 3;
-
-	if ( -1 == get_option(dhc, 50, (void*)address, sizeof(u_int32_t)) )
-		return -1;
 
 	fd = fopen("s_dhcp.lease", "r");
 	if (fd == NULL) 
@@ -165,10 +160,8 @@ int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 
 	gettimeofday(&tv,NULL);
 
-	unsigned char rhw[ETH_ALEN];
-	memcpy(rhw, dhc->chaddr, ETH_ALEN);
-	printf("LMAC "); printmac(ret.haddr);
-	printf("INMAC "); printmac(rhw);
+	printf("LMAC  "); printmac(ret.haddr);
+	printf("INMAC "); printmac(mac);
 	
 	//Запись с адресом недействительна
 	if ((ret.stime + ret.ltime) < tv.tv_sec) 
@@ -178,7 +171,7 @@ int get_proof(struct dhcp_packet * dhc, u_int32_t * address)
 		add_log("REPLAY LEASE ");
 		return 1;
 	} //Запись действительна и имеет тот же мак что у клиента
-	else if (0 == memcmp(ret.haddr, rhw, ETH_ALEN)) 
+	else if (0 == memcmp(ret.haddr, mac, ETH_ALEN)) 
 	{
 		printf("REPLAY LEASE BY MAC \n");
 		fclose(fd);

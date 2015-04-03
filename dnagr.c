@@ -14,24 +14,33 @@ char * ename;
 
 void * reply(void * arg)
 {
-	char buf[2048];
+	frame_t frame; 
 	int rep_sock = init_packet_sock(ename, ETH_P_ALL);
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
-	
-	while (1) 
-	{	
+
+	while(1)
+	{
 		gettimeofday(&now, NULL);
+		if ((now.tv_sec - st.tv_sec) > 5) break;
 		
-		if ( (now.tv_sec - st.tv_sec) > 5 ) break;
+		char buffer[sizeof(frame_t)];
+		memset(buffer, 0, sizeof(buffer));
+		memset(&frame, 0, sizeof(frame_t)); 
 		
-		recvfrom(rep_sock, buf, 1518, 0, NULL, 0);
-		struct dhcp_packet * dhc = (struct dhcp_packet *) (buf + FULLHEAD_LEN);
+		frame.size = recvfrom(rep_sock, buffer, DHCP_MTU_MAX, 0, NULL, 0);
 		
-		if (dhc->op == 2)  
+		if (frame.size == -1) continue;
+		if (frame.size < DHCP_FIXED_NON_UDP) continue;
+		
+		memcpy(&frame.h_eth, buffer, sizeof(struct ethhdr));
+		memcpy(&frame.h_ip, buffer + sizeof(struct ethhdr), frame.size - sizeof(struct ethhdr));
+		frame.size += 2;
+		
+		if (frame.p_dhc.op == BOOTP_REPLY)  
 		{
 			unsigned char type;
-			if (-1 == get_option(dhc, 53, &type, sizeof(type))) continue;
+			if (-1 == get_option(&frame.p_dhc, 53, &type, sizeof(type))) continue;
 			if (type != DHCPOFFER) continue;
 			
 			REPLYES++;
@@ -57,7 +66,7 @@ int main(int argc, char* argv[])
 	REPLYES       = 0;
 	double correct = 0;
 
-	char buf[2048];
+	frame_t frame; memset(&frame, 0, sizeof(frame));
 
 	if (argc > 1) 
 		ename = argv[1];
@@ -69,17 +78,13 @@ int main(int argc, char* argv[])
 
 	int sock = init_packet_sock(ename, ETH_P_IP);
 
-	int size = FULLHEAD_LEN + sizeof(struct dhcp_packet);
-
-	struct dhcp_packet *dhc;
-
 	set_my_mac(ename, macs);
-	memset(buf, 0, sizeof(buf));
+	
 
-	create_ethheader(buf, macs, macd, ETH_P_IP);
-	create_ipheader(buf, INADDR_ANY, INADDR_BROADCAST);
-	create_packet(ename, buf, 1, DHCPDISCOVER, NULL);
-	create_udpheader(buf, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
+	create_packet(ename, &frame, 1, DHCPDISCOVER, NULL);
+	create_ethheader(&frame, macs, macd, ETH_P_IP);
+	create_ipheader(&frame, INADDR_ANY, INADDR_BROADCAST);
+	create_udpheader(&frame, DHCP_CLIENT_PORT, DHCP_SERVER_PORT);
 	
 	gettimeofday(&start, NULL);
 	
@@ -90,20 +95,11 @@ int main(int argc, char* argv[])
 		usleep(DELAY * 1000);
 		
 		correct += 1.0 * DELAY * 1000 / 1000000;
-		
-		dhc = ( struct dhcp_packet * )(buf + FULLHEAD_LEN);
-		//printf("XID: %d\n",myxid);
-		dhc->xid = LASTRANDOM++;
+
+		frame.p_dhc.xid = LASTRANDOM++;
 		LASTRANDOM %= 1000000;		
 
-		//sendDHCP(ename,(void*)buf,0); 
-		if ( write( sock, buf, size) == -1 )  
-		{
-			perror("Error: send ");
-			close(sock);
-			exit(1);
-		}
-
+		sendDHCP(sock, &frame, 0); 
 	 }	
 	 
 	pthread_join(rep_t, NULL);

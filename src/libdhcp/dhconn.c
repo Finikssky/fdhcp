@@ -42,7 +42,7 @@ int sendARP(int sock, char * iface, u_int32_t ip)
 
 	set_my_mac(iface, macs);
 	
-	create_ethheader(buf, macs, macd, ETH_P_ARP);
+	create_ethheader((frame_t *)buf, macs, macd, ETH_P_ARP);
 	memset(macd, 0, ETH_ALEN);
 	create_arp(iface, buf, ip, macs, macd, ARPOP_REQUEST);
 	
@@ -50,7 +50,7 @@ int sendARP(int sock, char * iface, u_int32_t ip)
 	if ( write(sock, buf, size) == -1 )  
 	{
 		perror("send ARP Request");
-		return -1;;
+		return -1;
 	}
 
 	return 0;
@@ -112,10 +112,15 @@ int recvARP(int sock, char * iface, u_int32_t ip)
 
 //Sending dhcp packet
 
-int sendDHCP(int sock, char * iface, void * buffer, int size)
+int sendDHCP(int sock, frame_t * frame, int size)
 {
-	if (size == 0) size = FULLHEAD_LEN + sizeof(struct dhcp_packet);
-
+	if (size == 0) size = frame->size - 2; //2 is fucking padding
+	
+	char buffer[size];
+	char * ptr = buffer;
+	memcpy(ptr, &frame->h_eth, sizeof(struct ethhdr)); ptr += sizeof(struct ethhdr);
+	memcpy(ptr, &frame->h_ip,  ntohs(frame->h_ip.ip_len)); 
+	
 	if ( write(sock, buffer, size) == -1)  
 	{
 		perror("<send DHCP> send ");
@@ -127,51 +132,74 @@ int sendDHCP(int sock, char * iface, void * buffer, int size)
 }
 
 //waiting dhcp-reply packet 
-int recvDHCP(int sock, char * iface, void * buffer, int type, u_int32_t transid)
+int recvDHCP(int sock, char * iface, frame_t * frame, int bootp_type, int dhc_type, u_int32_t transid, int timeout)
 {
 	int bytes;
-	struct dhcp_packet * dhc;
 	int falsecnt = 0;
 	struct timeval st, now;
 	gettimeofday(&st, NULL);
 
 	while(1)
 	{
-		gettimeofday(&now, NULL);
-		if ((now.tv_sec - st.tv_sec) > 5) 
+		if (timeout > 0)
 		{
-			printf("TIMEOUT\n");
-			return -1;
+			gettimeofday(&now, NULL);
+			if ((now.tv_sec - st.tv_sec) > timeout) 
+			{
+				printf("TIMEOUT\n");
+				return -1;
+			}
 		}
 		
+		char buffer[sizeof(frame_t)];
 		memset(buffer, 0, sizeof(buffer));
-		bytes = recv_timeout(sock, buffer, 5);
-		//printf("<%s> recv_timeout returns %d\n", __FUNCTION__, bytes);
+		memset(frame, 0, sizeof(frame_t)); //maybe not optimal
 		
-		if (bytes == -1) 
+		if (timeout > 0 )
+			frame->size = recv_timeout(sock, buffer, timeout);
+		else 
+			frame->size = recvfrom(sock, buffer, DHCP_MTU_MAX, 0, NULL, 0);
+			
+		//printf("<%s> recv_timeout returns %d\n", __FUNCTION__, frame->size);
+		
+		if (frame->size == -1) 
 		{ 
-			printf("TIMEOUT\n");
+			perror("recv");
 			return -1;
 		}
 
-		if (bytes < DHCP_FIXED_NON_UDP) continue;
-		//printf("<%s> recv %d bytes\n", __FUNCTION__, bytes);
-		dhc = (struct dhcp_packet*) (buffer + FULLHEAD_LEN);
-	 	 	
-		if (dhc->xid == transid && dhc->op == 2)  
+		if (frame->size < DHCP_FIXED_NON_UDP) continue;
+		
+		memcpy(&frame->h_eth, buffer, sizeof(struct ethhdr));
+		memcpy(&frame->h_ip, buffer + sizeof(struct ethhdr), frame->size - sizeof(struct ethhdr));
+		frame->size += 2;
+		
+		if (frame->p_dhc.op != bootp_type) continue;
+		if (bootp_type == BOOTP_REQUEST && timeout == 0) break;
+		
+		if (frame->p_dhc.xid == transid)  
 		{
-			u_int32_t d_sip;
-			if (type == DHCPOFFER) break;
-			if (type == DHCPACK ) 
+			if (dhc_type == DHCPOFFER) break;
+			if (dhc_type == DHCPACK ) 
 			{	
 				int sip;
+				u_int32_t d_sip;
+				
 				get_lease(iface, NULL, (unsigned char*)&sip);
 				
-				if (-1 == get_option(dhc, 54, &d_sip, sizeof(d_sip))) continue;
+				if (-1 == get_option(&frame->p_dhc, 54, &d_sip, sizeof(d_sip))) continue;
 				if (d_sip != sip && d_sip != get_iface_ip(iface)) continue;
  
-				if (dhc->options[6] == DHCPACK) { printf("ACK\n"); break; }
-				if (dhc->options[6] == DHCPNAK) { printf("NAK\n"); return -1; }
+				if (frame->p_dhc.options[6] == DHCPACK) 
+				{
+					printf("ACK\n"); 
+					break; 
+				}
+				if (frame->p_dhc.options[6] == DHCPNAK) 
+				{
+					printf("NAK\n"); 
+					return -1; 
+				}
 			}
 		}
 	}

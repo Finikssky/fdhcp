@@ -211,54 +211,46 @@ int create_ack( void * iface, char * options, u_int32_t * y_addr , long * ltime)
 }
 
 // Create DHCP packet
-u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void * arg)
+u_int32_t create_packet(char * iface, frame_t * frame, int btype, int dtype, void * arg)
 {
-	struct dhcp_packet * cldhcp = (struct dhcp_packet *)(buffer + FULLHEAD_LEN);
 	long ltime = 0;
 	add_log("Creating DHCP packet...");
 
-	cldhcp->op    = btype;
-	cldhcp->htype = 1;
-	cldhcp->hlen  = 6;
-	cldhcp->hops  = 0;
-	if (cldhcp->xid == 0) 
+	frame->p_dhc.op    = btype;
+	frame->p_dhc.htype = 1;
+	frame->p_dhc.hlen  = 6;
+	frame->p_dhc.hops  = 0;
+	if (frame->p_dhc.xid == 0) 
 	{ 
-		 cldhcp->xid = rand();
-		 #ifdef XIDSTEP
-		 cldhcp->xid = htonl(LASTRANDOM++);		
-		 #endif
-		 LASTRANDOM = LASTRANDOM % 1000000;
+		 frame->p_dhc.xid = rand();
 	}
-	cldhcp->secs  = 0;
-	cldhcp->flags = 0x0000;
+	frame->p_dhc.secs  = 0;
+	frame->p_dhc.flags = 0x0000;
 	
-	if (dtype != DHCPACK) cldhcp->ciaddr.s_addr = 0;	
-	if (dtype != DHCPACK) cldhcp->yiaddr.s_addr = 0;
-	cldhcp->siaddr.s_addr = 0;
-	cldhcp->giaddr.s_addr = 0;	
+	frame->p_dhc.ciaddr.s_addr = 0;	
+	if (dtype != DHCPACK) frame->p_dhc.yiaddr.s_addr = 0;
+	if (dtype != DHCPACK) frame->p_dhc.siaddr.s_addr = 0;
+	frame->p_dhc.giaddr.s_addr = 0;	
 	
-	if (cldhcp->chaddr[0] == 0 &&
-		cldhcp->chaddr[1] == 0 &&
-		cldhcp->chaddr[2] == 0 &&
-		cldhcp->chaddr[3] == 0) set_my_mac(iface, cldhcp->chaddr);   
+	if (btype == BOOTP_REQUEST) set_my_mac(iface, frame->p_dhc.chaddr);   
 
+	memset(frame->p_dhc.options, 0, sizeof(frame->p_dhc.options));
     //Установка магических чисел					
-	cldhcp->options[0] = 99; 
-	cldhcp->options[1] = 130;
-	cldhcp->options[2] = 83; 
-	cldhcp->options[3] = 99;
+	frame->p_dhc.options[0] = 99; 
+	frame->p_dhc.options[1] = 130;
+	frame->p_dhc.options[2] = 83; 
+	frame->p_dhc.options[3] = 99;
    
     //Установка типа сообщения (опция 53) 	
-	cldhcp->options[4] = 53; 
-	cldhcp->options[5] = 1;
-	cldhcp->options[6] = dtype; 
+	frame->p_dhc.options[4] = 53; 
+	frame->p_dhc.options[5] = 1;
+	frame->p_dhc.options[6] = dtype; 
 
 	int cnt = 7;
-	memset(cldhcp->options + cnt, 0, (sizeof(cldhcp->options) - cnt));
 	
 	if	(dtype == DHCPOFFER)
 	{
-		cnt = create_offer(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr, &ltime);
+		cnt = create_offer(arg, frame->p_dhc.options + cnt, &frame->p_dhc.yiaddr.s_addr, &ltime);
 		if ( cnt == -1 ) 
 		{	
 			add_log("create offer fail");
@@ -269,7 +261,7 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	if (dtype == DHCPACK)
 	{
 		//Установка возвращаемого адреса		
-		cnt = create_ack(arg, cldhcp->options + cnt, &cldhcp->yiaddr.s_addr, &ltime);
+		cnt = create_ack(arg, frame->p_dhc.options + cnt, &frame->p_dhc.yiaddr.s_addr, &ltime);
 		if ( cnt == -1 ) 
 		{	
 			add_log("create ack fail");
@@ -281,10 +273,10 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	{
 		dserver_interface_t * interface = (dserver_interface_t *)arg;
 		//Установка адреса сервера
-		cldhcp->options[cnt++] = 54;
-		cldhcp->options[cnt++] = 4;
+		frame->p_dhc.options[cnt++] = 54;
+		frame->p_dhc.options[cnt++] = 4;
 		u_int32_t address = get_iface_ip(interface->name); 
-		memcpy(cldhcp->options + cnt, &address, sizeof(address));
+		memcpy(frame->p_dhc.options + cnt, &address, sizeof(address));
 		cnt += 4;
 	}	
 
@@ -292,93 +284,91 @@ u_int32_t create_packet(char * iface, char * buffer, int btype, int dtype, void 
 	{
 		dclient_interface_t * interface = (dclient_interface_t *)arg;
 		//Установка адреса сервера
-		cldhcp->options[cnt++] = 54;
-		cldhcp->options[cnt++] = 4;
-		if (get_lease(interface->name, NULL, cldhcp->options + cnt) == -1) return -1;
+		frame->p_dhc.options[cnt++] = 54;
+		frame->p_dhc.options[cnt++] = 4;
+		if (get_lease(interface->name, NULL, frame->p_dhc.options + cnt) == -1) return -1;
 		cnt += 4;
 	
 		//Установка запрашиваемого адреса
-		cldhcp->options[cnt++] = 50;
-		cldhcp->options[cnt++] = 4;
-		if (get_lease(interface->name, cldhcp->options + cnt, NULL) == -1) return -1;
+		frame->p_dhc.options[cnt++] = 50;
+		frame->p_dhc.options[cnt++] = 4;
+		if (get_lease(interface->name, frame->p_dhc.options + cnt, NULL) == -1) return -1;
 		cnt += 4;
 	
-		if (get_lease(interface->name, NULL, (unsigned char *)&cldhcp->siaddr.s_addr) == -1) return -1;
+		if (get_lease(interface->name, NULL, (unsigned char *)&frame->p_dhc.siaddr.s_addr) == -1) return -1;
 	}
 
-	cldhcp->options[cnt++] = 255; //Конец опций
-	memset(cldhcp->options + cnt, 0, sizeof(cldhcp->options) - cnt); //Очистка оставшегося поля пакета
+	frame->p_dhc.options[cnt++] = 255; //options end
+
+	frame->d_size = DHCP_FIXED_NON_UDP + (cnt * sizeof(unsigned char)); //dhcp pack len
+	frame->size += frame->d_size;
+	
+	//while((*opt_size % 8) != 0) *opt_size += 1;
 
 	add_log("Succesful created DHCP packet");
 	
 	if (dtype == DHCPACK || dtype == DHCPOFFER) return ntohl(ltime);
-	return cldhcp->xid; //Возврат идентификатора сессии
+	return frame->p_dhc.xid; //Возврат идентификатора сессии
 }
 
 //Create IP header
-void create_ipheader(char * buffer, int srcip, int destip ) 
+void create_ipheader(frame_t * frame, int srcip, int destip ) 
 {
-	struct ip *ip = (struct ip *) (buffer + sizeof(struct ethheader));
-
 	add_log("Creating IP header...");
 
-    memset(ip, 0, sizeof(struct ip));
-    ip->ip_hl  = 5;
-    ip->ip_v   = 4;
-    ip->ip_tos = IPTOS_LOWDELAY; 
-    ip->ip_len = htons(sizeof(struct ip) + sizeof(struct udpheader)+sizeof(struct dhcp_packet));
-    ip->ip_id  = 0;
-    ip->ip_off = 0;
-    ip->ip_ttl = 128; // hops
-    ip->ip_p   = IPPROTO_UDP; // UDP
+	frame->h_ip.ip_hl  = 5;
+	frame->h_ip.ip_v   = 4;
+	frame->h_ip.ip_tos = IPTOS_LOWDELAY; 
+	frame->h_ip.ip_len = htons(sizeof(struct ip) + sizeof(struct udphdr) + frame->d_size);
+	frame->h_ip.ip_id  = 0;
+	frame->h_ip.ip_off = 0;
+	frame->h_ip.ip_ttl = 128; // hops
+	frame->h_ip.ip_p   = IPPROTO_UDP; // UDP
 
     // Source IP address, can use spoofed address here!!!
-	ip->ip_src.s_addr = srcip;
+	frame->h_ip.ip_src.s_addr = srcip;
     // The destination IP address
-	ip->ip_dst.s_addr = destip;
+	frame->h_ip.ip_dst.s_addr = destip;
 
     // Calculate the checksum for integrity
-	ip->ip_sum = wrapsum(checksum((unsigned short *)ip, sizeof(struct ip),0));
+	frame->h_ip.ip_sum = wrapsum(checksum((unsigned short *)&frame->h_ip, sizeof(struct ip), 0));
+	
+	frame->size += sizeof(struct ip);
 
 	add_log("Succesful created IP header");	
 };
 
 //Create UDP header
 
-void create_udpheader(char * buffer, int srcport, int destport)
+void create_udpheader(frame_t * frame, int srcport, int destport)
 {
-	struct udphdr      * udp = (struct udphdr *) (buffer + sizeof(struct ethheader) + sizeof(struct ip));
-	struct ip          * ip  = (struct ip *) (buffer + sizeof(struct ethheader));
-	struct dhcp_packet *dhc  = (struct dhcp_packet *)(buffer + FULLHEAD_LEN);
-
 	add_log("Creating UDP header...");
 
-	memset(udp, 0, sizeof(udp));
+	frame->h_udp.source = htons(srcport);
+	frame->h_udp.dest   = htons(destport);
+	frame->h_udp.len    = htons(sizeof(struct udphdr) + frame->d_size);
+	memset(&frame->h_udp.check, 0, sizeof(frame->h_udp.check));
 
-	udp->source = htons(srcport);
-	udp->dest   = htons(destport);
-	udp->len    = htons(sizeof(struct udphdr) + sizeof(struct dhcp_packet));
-	memset(&udp->check, 0, sizeof(udp->check));
+	frame->h_udp.check = wrapsum( checksum ((unsigned char*) &frame->h_udp, sizeof(struct udphdr),
+								  checksum ((unsigned char*) &frame->p_dhc, frame->d_size,
+								  checksum ((unsigned char*) &frame->h_ip.ip_src, 8,
+								  IPPROTO_UDP + (u_int32_t)ntohs(frame->h_udp.len))))
+						);
 
-	udp->check = wrapsum( checksum ((unsigned char*) udp, sizeof(struct udphdr),
-						  checksum ((unsigned char*) dhc, sizeof(struct dhcp_packet),
-						  checksum ((unsigned char*) &ip->ip_src, 8,
-						  IPPROTO_UDP + (u_int32_t)ntohs(udp->len))))
-				);
-
+	frame->size += sizeof(struct udphdr);
 	add_log("Succesful created UDP header");
 }
 
 //Create ETH header
-void create_ethheader(void * buffer, unsigned char * macs, unsigned char * macd, u_int16_t proto)
+void create_ethheader(frame_t * frame, unsigned char * macs, unsigned char * macd, u_int16_t proto)
 {
-	struct ethheader * eth = (struct ethheader *)buffer;
 	add_log("Creating ETHERNET header...");
 
-	memcpy(eth->dmac, macd, ETH_ALEN);         //Установка адреса назначения
-	memcpy(eth->smac, macs, ETH_ALEN);         //Установка адреса отправителя
-	eth->type = htons(proto);                  //Установка типа протокола
+	memcpy(frame->h_eth.dmac, macd, ETH_ALEN);         //Установка адреса назначения
+	memcpy(frame->h_eth.smac, macs, ETH_ALEN);         //Установка адреса отправителя
+	frame->h_eth.type = htons(proto);                  //Установка типа протокола
 
+	frame->size += sizeof(struct ethhdr) + 2; //2 is fucking padding, because eth struct is packed
 	add_log("Succesful created ETHERNET header");
 }
 

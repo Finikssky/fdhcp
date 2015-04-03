@@ -10,6 +10,27 @@ void printip(u_int32_t ip)
 	 (ip>>24) & 0xff);
 }
 
+const char * stringize_dtype(int type)
+{
+	switch(type)
+	{
+		case DHCPDISCOVER:
+			return "DHCPDISCOVER";
+		case DHCPOFFER:
+			return "DHCPOFFER";
+		case DHCPREQUEST:
+			return "DHCPREQUEST";
+		case DHCPDECLINE:
+			return "DHCPDECLINE";
+		case DHCPACK:
+			return "DHCPACK";
+		case DHCPNAK:
+			return "DHCPNAK";
+		default:
+			return "UNKNOWN";
+	}
+}
+
 //Печатаем MAC
 void printmac(unsigned char * mac)
 {
@@ -63,17 +84,25 @@ int is_char_option(int option)
 int get_option(struct dhcp_packet * dhc, int option, void * ret_value, int size)
 {
 	//printf("<%s> option: %3d ret_size: %3d\n", __FUNCTION__, option, size);
+	//TODO maybe stack overborder
 	if (ret_value == NULL) return -1;
-	if (size == 0) 		   return -1;
+	if (size <= 0) 		   return -1;
 	
 	int i;
 	memset(ret_value, 0, size);
 	
-	for(i = 4; i < DHCP_MIN_OPTION_LEN; i++)
+	for(i = 4; i < DHCP_MAX_OPTION_LEN; i++)
 	{
 		int code = dhc->options[i];
 		
-		if (code == 255) break;
+		if (code == 255)
+		{
+			if (option == 255)
+			{
+				memcpy(ret_value, &i, sizeof(int));
+			}
+			break;
+		}
 		
 		int len  = dhc->options[i + 1];
 		//printf("<%s> cnt: %d code: %d len: %d\n", __FUNCTION__, i, code, len);
@@ -129,7 +158,7 @@ int get_iface_ip(char * iface)
 }
 
 //Обертка для recvfrom с таймаутом на селекте
-int recv_timeout(int sock, void * buf, int timeout)
+int recv_timeout(int sock, void * buffer, int timeout)
 {
 	//printf("<%s> sock: %d timeout: %d\n", __FUNCTION__, sock, timeout);
 	fd_set rdfs;
@@ -144,7 +173,7 @@ int recv_timeout(int sock, void * buf, int timeout)
 		
 	if (ret > 0) 
 	{
-		int bytes = recvfrom(sock, buf, 1518, 0, NULL, 0);
+		int bytes = recvfrom(sock, buffer, DHCP_MTU_MAX, 0, NULL, 0);
 		if (bytes == -1)
 		{
 			perror("<recv_timeout> recv");
@@ -188,7 +217,7 @@ int set_my_mac(char * iface, unsigned char * mac)
 }
 
 //Установка параметров сетевого интерфейса
-int apply_interface_settings(char * buffer, char * iface)
+int apply_interface_settings(frame_t * frame, char * iface)
 {
 	struct ifreq ifr;
 	struct sockaddr_in sai;
@@ -198,7 +227,7 @@ int apply_interface_settings(char * buffer, char * iface)
 	char * p;
 	int hres = -1;
 
-	struct dhcp_packet * dhc = (struct dhcp_packet * ) (buffer + FULLHEAD_LEN);
+	struct dhcp_packet * dhc = &frame->p_dhc;
 
 	add_log("Set interface configuration..");
  

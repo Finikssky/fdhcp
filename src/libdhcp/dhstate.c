@@ -19,34 +19,54 @@ cl_session_t * search_sid(int xid, queue_t * sessions)
 }
 
 //Функция получения типа сообщения
-int get_stype(int stat, qmessage_t mess)
+int get_stype(int stat, struct dhcp_packet * dhc)
 {
-	struct dhcp_packet * dhc = (struct dhcp_packet *)(mess.text + FULLHEAD_LEN);
-
+	int type = -1;
+	get_option(dhc, 53, &type, sizeof(type));
+	printf("dtype of input pack: %s\n", stringize_dtype(type));
+	
 	add_log("Start validation and get signal...");
 	
 	if (stat == START)
 	{
-		if (dhc->options[6] == DHCPDISCOVER) return DHCPDISCOVER;
-		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPDISCOVER) return DHCPDISCOVER;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == OFFER)
 	{
-		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == ANSWER)
 	{
-		if (dhc->options[6] == DHCPREQUEST)  return DHCPREQUEST;
-		if (dhc->options[6] == DHCPDECLINE)  return DHCPDECLINE;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPDECLINE)  return DHCPDECLINE;
 	}
 
 	add_log("Validation fail! Unknown signal!");
 	return UNKNOWN;
 }
 
-
+void get_need_info(request_t * info, frame_t * frame)
+{
+	memset(info, 0, sizeof(request_t));
+	
+	struct dhcp_packet * dhc = &frame->p_dhc;
+	info->xid  = dhc->xid;
+	
+	get_option(dhc, 53, &info->type, sizeof(info->type));	
+	if (-1 == get_option(dhc, 50, &info->req_address, sizeof(info->req_address))) 
+		printf("can't get 50 opt\n");	
+	else
+	{
+		printf("requested ");
+		printip(info->req_address);
+	}
+	memcpy(info->mac, dhc->chaddr, sizeof(info->mac));
+	
+	free(frame);
+}
 //Функция смены состояний, возвращает номер записи с которой мы будем работать
-cl_session_t * change_state(int xid, int dtype, qmessage_t mess, queue_t * sessions, void * interface)
+cl_session_t * change_state(frame_t * request, queue_t * sessions, void * interface)
 {
 	int num;
 	int i;
@@ -56,24 +76,25 @@ cl_session_t * change_state(int xid, int dtype, qmessage_t mess, queue_t * sessi
 	add_log("Changing state...");
 
 	//Получаем нужный контекст клиента
-	ses = search_sid(xid, sessions);
+	ses = search_sid(request->p_dhc.xid, sessions);
 
 	if (ses == NULL)
 	{
 		//Если клиента нет в списке добавляем новую запись
 		cl_session_t temp;
-		temp.sid   = xid;
+		temp.sid   = request->p_dhc.xid;
 		temp.state = START;
 		
 		push_queue(sessions, 0, &temp, sizeof(temp));
-		ses = (cl_session_t *)sessions->tail->data;
+		ses = (cl_session_t *)sessions->tail->data; //hack, refact it
 		printf("created new session\n");
 	}
 	printf("sessions count now: %d\n", sessions->elements);
+	
 	gettimeofday(&now, NULL);
 
 //Проводим валидацию сообщения с учетом текущего состояния
-	int signal = get_stype(ses->state, mess);
+	int signal = get_stype(ses->state, &request->p_dhc);
 	printf("signal %d\n", signal);
 
 //В зависимости от текущего состояния и результата валидации совершаем переход
@@ -84,10 +105,9 @@ cl_session_t * change_state(int xid, int dtype, qmessage_t mess, queue_t * sessi
 		if (ses->state == ptable[i].currstate && signal == ptable[i].in)
 		{
 			printf("change state %d to %d\n", ptable[i].currstate, ptable[i].nextstate);
-			ses->state  = ptable[i].nextstate; //Меняем состояние
-			ses->ctime  = now.tv_sec; 		 //Устанавливаем время последней смены состояния
-			mess.delay = ses->state;   //В сообщение добавляем текущее состояние для TX
-			ses->mess   = mess; 				 //Запоминаем последнее сообщение
+			ses->state       = ptable[i].nextstate; //Меняем состояние
+			ses->ctime       = now.tv_sec; 		 //Устанавливаем время последней смены состояния
+			get_need_info(&ses->info, request);
 			break;
 		}	
 	}
@@ -98,7 +118,7 @@ cl_session_t * change_state(int xid, int dtype, qmessage_t mess, queue_t * sessi
 		if (ses->state == ptable[i].currstate) 
 		{
 			printf("state %d\n", ses->state);
-			long status = ptable[i].fun(ses->mess.text, interface);
+			long status = ptable[i].fun(&ses->info, interface);
 			if ( -1 == status ) return NULL;
 			ses->ltime = status;
 			add_log("State changed!");
@@ -113,6 +133,9 @@ void clear_context(queue_t * sessions, void * interface)
 {
 	int i;
 	struct timeval now;
+
+	int response_time = MAX_RESPONSE - (sessions->elements / 200);
+	if ( response_time < MIN_RESPONSE ) response_time = MIN_RESPONSE;
 
 	//Копируем все действительные контексты во временный массив
 	qelement_t * iter;
@@ -132,25 +155,23 @@ void clear_context(queue_t * sessions, void * interface)
 			switch (ses->state)
 			{
 				case OFFER:
-					if (ses->ctime + TIMEPAUSE < now.tv_sec) ses->state = CLOSE;
+					if (ses->ctime + response_time < now.tv_sec) ses->state = CLOSE;
 					break;
 					
 				case ANSWER:
-					if (ses->ctime + ses->ltime + TIMEPAUSE < now.tv_sec) 
+					if (ses->ctime + ses->ltime + response_time < now.tv_sec) 
 					{
 						ses->state = NAK;
-						ses->mess.delay = NAK;
 						
 						for (i = 0; i < ptable_count; i++)
 						{
 							if (ses->state == ptable[i].currstate) 
 							{
-								ptable[i].fun(ses->mess.text, interface);
+								ptable[i].fun(&ses->info, interface);
 								break;
 							}
 						}
 						dserver_interface_t * ifs = (dserver_interface_t *)interface;
-						push_queue( ifs->qtransport, 1, &(ses->mess), sizeof(ses->mess) );
 					}
 					break;
 					
