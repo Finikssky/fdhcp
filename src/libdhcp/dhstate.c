@@ -27,7 +27,7 @@ int get_stype(int stat, struct dhcp_packet * dhc)
 {
 	int type = -1;
 	get_option(dhc, 53, &type, sizeof(type));
-	printf("dtype of input pack: %s\n", stringize_dtype(type));
+	printf("<%s> state: %d dtype: %s\n", __FUNCTION__, stat, stringize_dtype(type));
 	
 	add_log("Start validation and get signal...");
 	
