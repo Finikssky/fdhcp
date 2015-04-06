@@ -1,7 +1,7 @@
 CC = gcc
 IDIR = $(PWD)/include
 
-AFLAGS += -Wall -O3 -fPIC
+AFLAGS += -Wall -O2 -fPIC
 IFLAGS += -I$(IDIR)
 CFLAGS += $(AFLAGS) $(IFLAGS) $(UFLAGS)
 LFLAGS += -L./libs

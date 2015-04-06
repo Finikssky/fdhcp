@@ -1,8 +1,14 @@
-#include "dhcp.h"
+#include "libdhcp/dhcp.h"
+#include "libdhcp/dhioctl.h"
+#include "libdhcp/dhconn.h"
+
 #include "core.h"
-#include "dhioctl.h"
-#include "dhconn.h"
+
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
 #include <sys/time.h>
 
 int REQUESTS;
