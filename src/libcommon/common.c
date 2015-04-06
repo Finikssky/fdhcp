@@ -1,8 +1,45 @@
-#include "common.h"
-#include <string.h>
+#include "libcommon/common.h"
+
 #include <stdio.h>
+#include <stdio_ext.h>
+#include <string.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+
+int t_gets(FILE * stream, char end_simbol, char * out, int size, int start)
+{
+	if ( out == NULL )  return -1;
+	if ( feof(stream) ) return EOF;
+	if ( start < 0 )    return -1;
+	
+	if ( stream == stdin ) __fpurge(stream);
+	int i;
+	char last = ' ';
+	
+	for( i = start; i < (size - 1); i++ )
+	{	
+		char c = fgetc(stream);
+		if (c == '\t') c = ' ';
+		if (c == '\n' || c == EOF || (end_simbol != 0 && c == end_simbol)) 
+		{
+			if (i > 0 && out[ i - 1 ] == ' ') out[ i - 1] = '\0';
+			if (c == EOF) return EOF;
+			break;
+		}
+		else 
+			if ( last != ' ' || c != ' ') 
+				out[i] = c;
+			else
+				i--;
+		
+		last = c;
+	}
+	
+	out[i] = '\0';
+	
+	if ( stream == stdin ) __fpurge(stream);
+	return 0;
+}
 
 void generate_salt(char * salt, int size)
 {
@@ -26,9 +63,6 @@ void generate_hash(char * password, int psize, char * salt, int ssize, char * ha
 		while (hash[i] == '\0') hash[i]++;
 	}
 	hash[i] = '\0';
-	printf("pass: %s %d\n", password, psize);
-	printf("salt: %s %d\n", salt, ssize);
-	printf("hash: %s %d\n", hash, hsize);
 }
 
 int ip_address_range_parse(const char * range_str, ip_address_range_t * range)
@@ -111,3 +145,9 @@ int ip_address_range_is_overlap(ip_address_range_t * left, ip_address_range_t * 
 	return 0;
 }
 
+int ip_address_range_have_address(ip_address_range_t * range, u_int32_t  * address)
+{
+	printf("<%s>\n", __FUNCTION__);
+	if (htonl(*address) <= htonl(range->end_address) && htonl(*address) >= htonl(range->start_address)) return 1;
+	return 0;
+}

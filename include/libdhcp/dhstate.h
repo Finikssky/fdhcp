@@ -2,6 +2,7 @@
 #define STATE
 
 #include "dhcp.h"
+#include "core.h"
 
 #define START 0
 #define OFFER 1
@@ -14,16 +15,28 @@
 #define TIME 7
 #define DISABLE 1
 
-#define TIMEPAUSE 10
+#define MAX_RESPONSE 10
+#define MIN_RESPONSE 3
 
-struct session { 
-	int sid;                        //Идентификатор сессии
-	int state; 			//Идентификатор состояния
-	int ctime;  			//Время последней смены состояния
-	struct qmessage mess;		//Последнее принятое сообщение
-};
+typedef struct request
+{
+	unsigned char type;
+	int           xid;
+	u_int32_t     req_address;
+	unsigned char mac[16];
+} request_t;
 
-struct pass {
+typedef struct cl_session
+{ 
+	int        sid; 					//Идентификатор сессии
+	int        state; 					//Идентификатор состояния
+	int        ctime;  				    //Время последней смены состояния
+	int        ltime;					//Время аренды
+	request_t  info;
+} cl_session_t;
+
+struct pass 
+{
 	int currstate;
 	int in;
 	int nextstate;
@@ -32,9 +45,9 @@ struct pass {
 
 int ptable_count;
 
-int search_sid(int xid, int scount, struct session **ses);
-int get_stype(int stat, struct qmessage mess);
-int change_state(int xid, int dtype,struct qmessage mess, struct session **ses, int *scount, void * interface);
-void clear_context(struct session **ses, int *scount, void * interface);
+cl_session_t * search_sid(int xid, queue_t * sessions);
+cl_session_t * change_state(frame_t * request, queue_t * sessions, void * interface);
+int  get_stype(int stat, struct dhcp_packet * dhc);
+void clear_context(queue_t * sessions, void * interface);
 
 #endif

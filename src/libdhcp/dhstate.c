@@ -1,175 +1,193 @@
-#include "dhstate.h"
 #include "core.h"
+#include "libdhcp/dhstate.h"
+#include "libdhcp/dhioctl.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 //Функция поиска записи с заданный идентификатором
-int search_sid(int xid, int scount, struct session **ses)
+cl_session_t * search_sid(int xid, queue_t * sessions)
 {
-	int i;
 	add_log("Searshing sid...");
 
-	for( i = 0; i < scount; i++)
+	qelement_t * iter;
+	for (iter = sessions->head; iter != NULL; iter = iter->next)
 	{
-		if ((*ses)[i].sid == xid) 
-		{
-			add_log("Have sid!"); 
-			return i;
-		}
+		cl_session_t * ses = (cl_session_t *) iter->data;
+		if (ses->sid == xid) return ses;
 	}
 
 	add_log("No sid( ");
-	return -1;
+	return NULL;
 }
 
 //Функция получения типа сообщения
-int get_stype(int stat, struct qmessage mess)
+int get_stype(int stat, struct dhcp_packet * dhc)
 {
-	struct dhcp_packet *dhc = (struct dhcp_packet*)(mess.text+FULLHEAD_LEN);
-
+	int type = -1;
+	get_option(dhc, 53, &type, sizeof(type));
+	printf("<%s> state: %d dtype: %s\n", __FUNCTION__, stat, stringize_dtype(type));
+	
 	add_log("Start validation and get signal...");
 	
 	if (stat == START)
 	{
-		if (dhc->options[6] == DHCPDISCOVER) return DHCPDISCOVER;
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (type == DHCPDISCOVER) return DHCPDISCOVER;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == OFFER)
 	{
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
 	}
 	if (stat == ANSWER)
 	{
-		if (dhc->options[6] == DHCPREQUEST) return DHCPREQUEST;
+		if (type == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPDECLINE)  return DHCPDECLINE;
 	}
 
 	add_log("Validation fail! Unknown signal!");
 	return UNKNOWN;
 }
 
-
-//Функция смены состояний, возвращает номер записи с которой мы будем работать
-int change_state(int xid, int dtype, struct qmessage mess, struct session **ses, int *scount, void * interface)
+void get_need_info(request_t * info, frame_t * frame)
 {
-	int num;
+	memset(info, 0, sizeof(request_t));
+	
+	struct dhcp_packet * dhc = &frame->p_dhc;
+	info->xid  = dhc->xid;
+	
+	get_option(dhc, 53, &info->type, sizeof(info->type));	
+	if (-1 == get_option(dhc, 50, &info->req_address, sizeof(info->req_address))) 
+		printf("can't get 50 opt\n");	
+	else
+	{
+		printf("requested ");
+		printip(info->req_address);
+	}
+	memcpy(info->mac, dhc->chaddr, sizeof(info->mac));
+	
+	free(frame);
+}
+//Функция смены состояний, возвращает номер записи с которой мы будем работать
+cl_session_t * change_state(frame_t * request, queue_t * sessions, void * interface)
+{
 	int i;
 	struct timeval now;
+	cl_session_t * ses;
 
 	add_log("Changing state...");
 
-//Получаем нужный контекст клиента
-	printf("SCOUNT %d\n", *scount);
-	num = search_sid(xid, *scount, ses);
+	//Получаем нужный контекст клиента
+	ses = search_sid(request->p_dhc.xid, sessions);
 
-	if (num == -1)
+	if (ses == NULL)
 	{
 		//Если клиента нет в списке добавляем новую запись
-		*ses = realloc(*ses,(++(*scount)) * sizeof(struct session));
-		if (*ses == NULL) perror("realloc in changing state");
-
-		num = *scount - 1;
-		memset(&((*ses)[num]), 0, sizeof(struct session));
-		(*ses)[num].sid = xid;
-		(*ses)[num].state = START;
+		cl_session_t temp;
+		temp.sid   = request->p_dhc.xid;
+		temp.state = START;
+		
+		push_queue(sessions, 0, &temp, sizeof(temp));
+		ses = (cl_session_t *)sessions->tail->data; //hack, refact it
+		printf("created new session\n");
 	}
-
-	gettimeofday(&now,NULL);
+	printf("sessions count now: %d\n", sessions->elements);
+	
+	gettimeofday(&now, NULL);
 
 //Проводим валидацию сообщения с учетом текущего состояния
-	int signal = get_stype((*ses)[num].state, mess);
+	int signal = get_stype(ses->state, &request->p_dhc);
 	printf("signal %d\n", signal);
 
 //В зависимости от текущего состояния и результата валидации совершаем переход
 //по конечному автомату в следующее состояние
 
-	for(i = 0; i < ptable_count; i++)
+	for (i = 0; i < ptable_count; i++)
 	{
-		if((*ses)[num].state == ptable[i].currstate && signal == ptable[i].in)
+		if (ses->state == ptable[i].currstate && signal == ptable[i].in)
 		{
 			printf("change state %d to %d\n", ptable[i].currstate, ptable[i].nextstate);
-			(*ses)[num].state = ptable[i].nextstate; //Меняем состояние
-			(*ses)[num].ctime = now.tv_sec; //Устанавливаем время последней смены состояния
-			mess.delay = (*ses)[num].state; //В сообщение добавляем текущее состояние для TX
-			(*ses)[num].mess = mess; //Запоминаем последнее сообщение
+			ses->state       = ptable[i].nextstate; //Меняем состояние
+			ses->ctime       = now.tv_sec; 		 //Устанавливаем время последней смены состояния
+			get_need_info(&ses->info, request);
 			break;
 		}	
 	}
 
-//Взависимости от текущего состояния автомата выполняем соответствующую функцию
-	for(i = 0; i < ptable_count; i++)
+	//Взависимости от текущего состояния автомата выполняем соответствующую функцию
+	for (i = 0; i < ptable_count; i++)
 	{
-		if((*ses)[num].state == ptable[i].currstate) 
+		if (ses->state == ptable[i].currstate) 
 		{
-			printf("state %d\n", (*ses)[num].state);
-			if (-1 == ptable[i].fun((*ses)[num].mess.text, interface)) return -1;
+			printf("state %d\n", ses->state);
+			long status = ptable[i].fun(&ses->info, interface);
+			if ( -1 == status ) return NULL;
+			ses->ltime = status;
 			add_log("State changed!");
 			break;
 		}
 	}
 	
-	return num;
+	return ses;
 }
 
-void clear_context(struct session **ses, int *scount, void * interface)
+void clear_context(queue_t * sessions, void * interface)
 {
-	struct session *new = NULL;
-	int i,j;
-	int newscount = 0;
+	int i;
 	struct timeval now;
 
-        //Копируем все действительные контексты во временный массив
-	for(i=0; i < *scount;i++)
-	{
-		if ((*ses)[i].state != CLOSE) 
-		{
-			new = realloc(new, (++newscount) * sizeof(struct session));
-			new[newscount-1] = (*ses)[i];
-		}
-	}
-	
-	//Очищаем старый массив и копируем временный в него
-	*scount = newscount;
-	*ses = realloc(*ses,(*scount)*sizeof(struct session));
-	memset(*ses, 0, (*scount) * sizeof(struct session));
-	memcpy(*ses, new, (*scount)*sizeof(struct session));
+	int response_time = MAX_RESPONSE - (sessions->elements / 200);
+	if ( response_time < MIN_RESPONSE ) response_time = MIN_RESPONSE;
 
-	//Если время ожидания перехода истекло
-	for(i = 0; i < *scount; i++)
+	//Копируем все действительные контексты во временный массив
+	qelement_t * iter;
+	for (iter = sessions->head; iter != NULL; )
 	{
-		gettimeofday(&now,NULL);
-		switch((*ses)[i].state)
+		cl_session_t * ses = (cl_session_t *)iter->data;
+		if (ses->state == CLOSE) 
 		{
-			case OFFER:
-				if((*ses)[i].ctime + TIMEPAUSE < now.tv_sec) (*ses)[i].state = CLOSE;
-				break;
-				
-			case ANSWER:
-				if((*ses)[i].ctime + get_lease_time() + TIMEPAUSE < now.tv_sec) 
-				{
-					(*ses)[i].state = NAK;
-					(*ses)[i].mess.delay = NAK;
+			qelement_t * next = iter->next;
+			delete_ptr(sessions, iter);
+			iter = next;
+		}
+		else
+		{
+			gettimeofday(&now,NULL);
+			
+			switch (ses->state)
+			{
+				case OFFER:
+					if (ses->ctime + response_time < now.tv_sec) ses->state = CLOSE;
+					break;
 					
-					for(j = 0;j < ptable_count; j++)
+				case ANSWER:
+					if (ses->ctime + ses->ltime + response_time < now.tv_sec) 
 					{
-						if((*ses)[i].state == ptable[j].currstate) 
+						ses->state = NAK;
+						
+						for (i = 0; i < ptable_count; i++)
 						{
-							ptable[j].fun((*ses)[i].mess.text, interface);
-							break;
-                		}
+							if (ses->state == ptable[i].currstate) 
+							{
+								ptable[i].fun(&ses->info, interface);
+								break;
+							}
+						}
 					}
-					dserver_interface_t * ifs = (dserver_interface_t *)interface;
-					pushmessage((*ses)[i].mess, ifs->c_idx*2 + 1);
-				}
-				break;
-				
-			case NAK:
-				(*ses)[i].state = CLOSE;
-				break;
-				
-			default:
-				break;
+					break;
+					
+				case NAK:
+					ses->state = CLOSE;
+					break;
+					
+				default:
+					break;
+			}
+			
+			iter = iter->next;
 		}
 	}
-
-	if (new != NULL) free(new);
 }
 
 

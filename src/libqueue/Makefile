@@ -1,9 +1,6 @@
-headers=queue.h
-libqsources:=getmesstext.c pushmessage.c popmessage.c printmessage.c initsync.c deletehead.c genrandmessage.c reversemessage.c
-libqobj:=$(libqsources:.c=.o) 
-
-CC=gcc
-CFLAGS = -I../../include/libqueue 
+headers := queue.h
+libqsources := push.c pop.c init.c delete.c
+libqobj := $(libqsources:.c=.o) 
 
 all: $(libqobj) 
 	ar cr libqueue.a $(libqobj)
@@ -12,7 +9,7 @@ all: $(libqobj)
 	cp libqueue.a ../../libs/libqueue.a
 	
 %.o:%.c $(headers)
-	$(CC) $(CFLAGS) -fPIC -c $*.c -o $*.o
+	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
 clean: 
 	rm -f *.o

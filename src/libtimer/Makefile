@@ -1,9 +1,6 @@
-headers=timer.h
-dsources=timer.c
-dobj=$(dsources:.c=.o)
- 
-CC=gcc
-CFLAGS= -I../../include/libtimer
+headers  = timer.h
+dsources = timer.c
+dobj = $(dsources:.c=.o)
 
 all: $(dobj) 
 	ar cr libtimer.a $(dobj)
@@ -12,11 +9,10 @@ all: $(dobj)
 	cp libtimer.a ../../libs/libtimer.a
 
 %.o:%.c $(headers)
-	$(CC) $(CFLAGS) -fPIC -c $*.c -o $*.o
+	$(CC) $(CFLAGS) -c $*.c -o $*.o
 
 clean: 
 	rm -f *.o
-	rm -f libtimer.a
-	rm -f libdyntimer.so
-
+	rm -f lib*
+	rm -f *~
 

@@ -1,4 +1,5 @@
-#include "timer.h"
+#include "libtimer/timer.h"
+#include <unistd.h>
 
 void * timer(void * arg)
 {
@@ -6,7 +7,7 @@ void * timer(void * arg)
 
 	while(1)
 	{
-		sleep(t.timeout);
+		usleep(1000000 * t.timeout);
 		t.fun(t.args);
 	}
 }
