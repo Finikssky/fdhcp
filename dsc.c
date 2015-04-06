@@ -294,13 +294,13 @@ int send_offer(void * info, void * arg)
 
 	set_my_mac(interface->name, macs);	
 	frame.p_dhc.xid = request->xid;
+	memcpy(frame.p_dhc.chaddr, request->mac, sizeof(frame.p_dhc.chaddr));
 	
 	if (-1 == create_packet(interface->name, &frame, 2, DHCPOFFER, interface)) 
 	{	
 		perror("create dhc packet:");
 		return -1;
 	}
-	
 	
 	create_ethheader(&frame, macs, request->mac, ETH_P_IP);
 	create_ipheader(&frame, get_iface_ip(interface->name), frame.p_dhc.yiaddr.s_addr);
@@ -364,6 +364,7 @@ int send_answer(void * info, void * arg)
 	set_my_mac(interface->name, macs);
 	frame.p_dhc.xid = request->xid;
 	frame.p_dhc.yiaddr.s_addr = request->req_address;
+	memcpy(frame.p_dhc.chaddr, request->mac, sizeof(frame.p_dhc.chaddr));
 
 	//Проверяем доступен ли адрес
 	int result = get_proof(request->mac, &request->req_address);
@@ -439,7 +440,7 @@ void * s_replyDHCP(void * arg)
 	{
 		add_log("SEND_SERVER_REPLY");
 		pop_queue(interface->qtransport, 1, &reply, sizeof(reply));
-		sendDHCP(interface->send_sock, (frame_t *)reply.packet, reply.size); //TODO correct size
+		sendDHCP(interface->send_sock, (frame_t *)reply.packet, reply.size - 2); //padding 2
 		free(reply.packet);
 	}
 }

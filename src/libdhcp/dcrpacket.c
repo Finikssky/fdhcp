@@ -302,12 +302,15 @@ u_int32_t create_packet(char * iface, frame_t * frame, int btype, int dtype, voi
 		if (get_lease(interface->name, NULL, (unsigned char *)&frame->p_dhc.siaddr.s_addr) == -1) return -1;
 	}
 
-	frame->p_dhc.options[cnt++] = 255; //options end
+	if (dtype == DHCPDISCOVER)
+	{
+		//TODO
+	}
 
+	frame->p_dhc.options[cnt++] = 255; //options end
+	
 	frame->d_size = DHCP_FIXED_NON_UDP + (cnt * sizeof(unsigned char)); //dhcp pack len
 	frame->size += frame->d_size;
-	
-	//while((*opt_size % 8) != 0) *opt_size += 1;
 
 	add_log("Succesful created DHCP packet");
 	
