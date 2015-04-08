@@ -99,25 +99,15 @@ int create_server_options ( unsigned char * options, dserver_subnet_t * subnet, 
 	}
 
 	// option 6, dns-servers
-	dserver_dns_t * dns = subnet->dns_servers;
-	if ( dns != NULL )
+	if ( subnet->dns_servers->elements > 0 )
 	{
-		int dns_len = 0;
-		int dns_idx;
-
 		options[cnt++] = 6;
-		dns_idx = cnt;
-		cnt++;
+		options[cnt++] = subnet->dns_servers->elements * sizeof(u_int32_t);
 
-		while ( dns != NULL )
-		{
-			memcpy( options + cnt, &dns->address, sizeof (dns->address ) );
-			cnt += 4;
-			dns_len += 4;
-			dns = dns->next;
-		}
-
-		options[dns_idx] = dns_len;
+		Q_FOREACH(int *, dns, subnet->dns_servers,
+			memcpy( options + cnt, dns, sizeof (*dns) );
+			cnt += sizeof (*dns);
+		)
 	}
 
 	// option 12, host_name

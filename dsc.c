@@ -117,14 +117,11 @@ int save_config ( DSERVER * server, char * c_file )
 					fprintf( fd, "        %s: %s-%s\n", "range", start_address, end_address );
 				)
 
-				dserver_dns_t * dns = subnet->dns_servers;
-				while ( dns != NULL )
-				{
+				Q_FOREACH(int *, dns, subnet->dns_servers,
 					char dns_address[INET_ADDRSTRLEN];
-					inet_ntop( AF_INET, &dns->address, dns_address, sizeof (dns_address ) );
+					inet_ntop( AF_INET, dns, dns_address, sizeof (dns_address ) );
 					fprintf( fd, "        %s: %s\n", "dns-server", dns_address );
-					dns = dns->next;
-				}
+				)
 
 				dserver_router_t * router = subnet->routers;
 				while ( router != NULL )
@@ -776,6 +773,7 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 	subnet->free_addresses = 0;
 	subnet->lease_time = 0;
 	subnet->pools = init_queues( 1, Q_STANDART_MODE );
+	subnet->dns_servers = init_queues(1, Q_STANDART_MODE);
 
 	if ( settings->subnets == NULL )
 	{
@@ -930,34 +928,20 @@ int del_range_from_subnet ( dserver_subnet_t * subnet, char * range )
 
 int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address )
 {
-	dserver_dns_t * dns = subnet->dns_servers;
-	dserver_dns_t * temp = NULL;
-
 	if ( address == NULL ) return - 1;
 
 	u_int32_t ip = inet_addr( address );
 	if ( ip == - 1 ) return - 1;
 
-	while ( dns != NULL )
-	{
-		if ( ip == dns->address )
+	Q_FOREACH(int *, entry, subnet->dns_servers,
+		if ( ip == *entry )
 		{
-			printf( "dns-server is exist" );
+			printf( "dns-server is exist\n" );
+			return -1;
 		}
-		temp = dns;
-		dns = dns->next;
-	}
+	)
 
-	dns = malloc( sizeof (dserver_dns_t ) );
-	memset( dns, 0, sizeof (*dns ) );
-	dns->next = NULL;
-
-	if ( temp )
-		temp->next = dns;
-	else
-		subnet->dns_servers = dns;
-
-	dns->address = ip;
+	push_queue(subnet->dns_servers, 0, &ip, sizeof(ip));
 	printf( "dns-server %s added\n", address );
 
 	return 0;
@@ -965,31 +949,19 @@ int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address )
 
 int del_dns_from_subnet ( dserver_subnet_t * subnet, char * address )
 {
-	dserver_dns_t * dns = subnet->dns_servers;
-	dserver_dns_t * temp = NULL;
-
 	if ( address == NULL ) return - 1;
 
 	u_int32_t ip = inet_addr( address ); //TODO parsing
 	if ( ip == - 1 ) return - 1;
 
-	while ( dns != NULL )
-	{
-		if ( ip == dns->address )
+	Q_FOREACH(int *, entry, subnet->dns_servers, 
+		if ( *entry == ip )
 		{
-			printf( "del dns-server %s\n", address );
-			if ( temp )
-				temp->next = dns->next;
-			else
-				subnet->dns_servers = dns->next;
-
-			free( dns );
+			printf( "delete dns-server %s\n", address );
+			delete_ptr( subnet->dns_servers, Q_ITER );
 			return 0;
 		}
-
-		temp = dns;
-		dns = dns->next;
-	}
+	)
 
 	printf( "dns-server %s is not exist\n", address );
 
