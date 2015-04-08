@@ -9,7 +9,11 @@ void * push_queue(queue_t * queues, int qnum, void * data, size_t size)
 	
 	qelement_t * temp = malloc(sizeof(qelement_t));
 	
-	if (temp == NULL) return NULL;
+	if (temp == NULL)
+	{
+		pthread_mutex_unlock(&queue->mutex);
+		return NULL;
+	}
 	
 	temp->next     = NULL;
 	temp->prev     = NULL;

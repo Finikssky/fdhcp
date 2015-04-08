@@ -13,7 +13,7 @@ typedef struct qmessage
 {
 	int             code;
 	int             size;
-	unsigned char * packet;
+	void          * packet;
 } qmessage_t;
 
 //SERVER
@@ -51,7 +51,6 @@ typedef struct {
 	int                   listen_sock; //нужно ли их 2
 	int                   send_sock;
 	int                   cci;
-	int                   c_idx;
 	pthread_t             listen;
 	pthread_t             sender;
 	pthread_t             fsm;

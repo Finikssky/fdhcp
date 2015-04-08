@@ -23,6 +23,12 @@
 #define PTABLE_COUNT   9
 #define S_CONFIG_FILE "dsc.conf"
 
+DSERVER MAIN_CONFIG;
+pthread_t manipulate_tid;
+
+int server_init(DSERVER *);
+int server_release(DSERVER *);
+
 void * iface_loop ( void * iface );
 void * manipulate ( void * server );
 void * s_recvDHCP ( void * arg );
@@ -311,7 +317,7 @@ int send_offer ( void * info, void * arg )
 	message.size = frame.size;
 	message.packet = malloc( message.size );
 	memcpy( message.packet, &frame, message.size );
-	push_queue( interface->qtransport, 1, &message, sizeof (message ) );
+	push_queue( interface->qtransport, 1, &message, sizeof (qmessage_t ) );
 
 	add_log( "DHCPOFFER sended!" );
 	return 0;
@@ -343,7 +349,7 @@ int send_nak ( void * info, void * arg )
 	message.size = frame.size;
 	message.packet = malloc( message.size );
 	memcpy( message.packet, &frame, message.size );
-	push_queue( interface->qtransport, 1, &message, sizeof (message ) );
+	push_queue( interface->qtransport, 1, &message, sizeof (qmessage_t ) );
 
 	add_log( "DHCPNAK sended!" );
 	return 0;
@@ -395,7 +401,7 @@ int send_answer ( void * info, void * arg )
 	message.size = frame.size;
 	message.packet = malloc( message.size );
 	memcpy( message.packet, &frame, message.size );
-	push_queue( interface->qtransport, 1, &message, sizeof (message ) );
+	push_queue( interface->qtransport, 1, &message, sizeof (qmessage_t ) );
 
 	add_log( "DHCPACK/DHCPNAK sended!" );
 	return ltime;
@@ -496,10 +502,9 @@ void * s_fsmDHCP ( void * arg )
 
 }
 
-int enable_interface ( dserver_interface_t * interface, int idx )
+int enable_interface (dserver_interface_t * interface)
 {
 	interface->enable = 1;
-	interface->c_idx = idx;
 	interface->listen_sock = init_packet_sock( interface->name, ETH_P_ALL ); //? ETH_P_ALL
 	interface->send_sock = init_packet_sock( interface->name, ETH_P_IP );
 	interface->qtransport = init_queues( 2, Q_TRANSPORT_MODE );
@@ -535,7 +540,7 @@ int enable_interface ( dserver_interface_t * interface, int idx )
 	return 0;
 }
 
-int disable_interface ( dserver_interface_t * interface, int idx )
+int disable_interface (dserver_interface_t * interface)
 {
 	if ( 0 == pthread_cancel( interface->listen ) )
 	{
@@ -637,6 +642,11 @@ void init_ptable ( int size ) //TODO release ptable
 	ptable[8].in = 0;
 	ptable[8].nextstate = CLOSE;
 	ptable[8].fun = send_nak;
+}
+
+void release_ptable()
+{
+	free(ptable);
 }
 
 void * sm ( void * arg )
@@ -1047,14 +1057,14 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			idx = get_iface_idx_by_name( ifname, server );
 			if ( idx == - 1 ) return - 1;
 			if ( server->interfaces[idx].enable == 1 ) return - 1;
-			if ( - 1 == enable_interface( &server->interfaces[idx], idx ) ) return - 1;
+			if ( - 1 == enable_interface(&server->interfaces[idx]) ) return - 1;
 			break;
 
 		case SR_SET_IFACE_DISABLE:
 			idx = get_iface_idx_by_name( ifname, server );
 			if ( idx == - 1 ) return - 1;
 			if ( server->interfaces[idx].enable == 0 ) return - 1;
-			if ( - 1 == disable_interface( &server->interfaces[idx], idx ) ) return - 1;
+			if ( - 1 == disable_interface(&server->interfaces[idx]) ) return - 1;
 			break;
 
 		case SR_SET_LEASETIME:
@@ -1222,16 +1232,6 @@ void * manipulate ( void * server )
 
 		if ( exec_status == 1 )
 		{
-			int i;
-			save_config( server, S_CONFIG_FILE );
-			for ( i = 0; i < MAX_INTERFACES; i ++ )
-			{
-				dserver_interface_t * interface = & caller->interfaces[i];
-				if ( strlen( interface->name ) == 0 ) continue;
-				if ( interface->enable == 1 ) disable_interface( &caller->interfaces[i], i );
-
-				//free interfaces
-			}
 			pthread_exit( NULL );
 		}
 	}
@@ -1239,15 +1239,29 @@ void * manipulate ( void * server )
 	release_DCTP_socket( sock );
 }
 
-int main ( )
-{//Добавить проверку чтобы нельзя было  открыть еще один экземпляр
-	pthread_t manipulate_tid;
-	DSERVER server;
-	memset( &server, 0, sizeof (server ) );
+void safe_exit()
+{
+	server_release(&MAIN_CONFIG);
+	if ( 0 == pthread_cancel( manipulate_tid) )
+	{
+		void *res;
+		pthread_join( manipulate_tid, &res );
+		if ( res == PTHREAD_CANCELED )
+			printf( "close manipulate thread\n");
+		else
+			printf( "error: can't close manipulate thread : %s\n", strerror(errno));
+	}
+	
+	exit(0);
+}
 
+int server_init(DSERVER * server)
+{
 	srand( time( NULL ) );
+	memset( server, 0, sizeof (DSERVER) );
 	init_ptable( PTABLE_COUNT );
-
+	signal(SIGINT, safe_exit);
+	
 	//LOADING CONFIGURATION
 	DSERVER * temp_config = ( DSERVER * ) malloc( sizeof (DSERVER) );
 	memset( temp_config, 0, sizeof (*temp_config ) );
@@ -1255,31 +1269,59 @@ int main ( )
 	if ( - 1 != load_config( temp_config, S_CONFIG_FILE ) )
 	{
 		init_interfaces( temp_config );
-		memcpy( &server, temp_config, sizeof ( server ) );
+		memcpy( server, temp_config, sizeof ( DSERVER ) );
 	}
 	else
 	{
-		init_interfaces( &server );
+		init_interfaces( server );
 	}
 
 	free( temp_config );
-	save_config( &server, S_CONFIG_FILE );
+	save_config( server, S_CONFIG_FILE );
 
 	int i;
 	for ( i = 0; i < MAX_INTERFACES; i ++ )
 	{
-		dserver_interface_t * interface = & server.interfaces[i];
+		dserver_interface_t * interface = & server->interfaces[i];
 		if ( strlen( interface->name ) == 0 ) continue;
 		if ( interface->enable == 0 ) continue;
 		interface->cci = 5;
-		if ( - 1 == enable_interface( interface, i ) ) return - 1;
+		if ( - 1 == enable_interface(interface) ) return -1;
 	}
+	return 0;
+}
 
-	//END LOADING CONFIGURATION
+int server_release(DSERVER * server)
+{
+	int i;
+	save_config( server, S_CONFIG_FILE );
+	for ( i = 0; i < MAX_INTERFACES; i ++ )
+	{
+		dserver_interface_t * interface = & server->interfaces[i];
+		if ( strlen( interface->name ) == 0 ) continue;
+		if ( interface->enable == 1 ) disable_interface(interface);
 
-	pthread_create( &manipulate_tid, NULL, manipulate, ( void * ) &server );
+		Q_FOREACH(dserver_subnet_t *, subnet, interface->settings.subnets, 
+			uninit_queues(subnet->pools, 1);
+			uninit_queues(subnet->routers, 1);
+			uninit_queues(subnet->dns_servers, 1);
+		)
+				
+		uninit_queues(interface->settings.subnets, 1);
+	}
+	release_ptable();
+	
+	return 0;
+}
 
+int main ( )
+{//Добавить проверку чтобы нельзя было  открыть еще один экземпляр
+	server_init(&MAIN_CONFIG);
+
+	pthread_create( &manipulate_tid, NULL, manipulate, ( void * ) &MAIN_CONFIG );
 	pthread_join( manipulate_tid, NULL );
+	
+	server_release(&MAIN_CONFIG);
 
 	return 0;
 }
