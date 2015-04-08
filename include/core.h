@@ -17,15 +17,6 @@ typedef struct qmessage
 } qmessage_t;
 
 //SERVER
-
-struct dserver_pool_s
-{
-	struct dserver_pool_s * next;
-	ip_address_range_t range;
-};
-
-typedef struct dserver_pool_s dserver_pool_t;
-
 struct dserver_dns_s
 {
 	struct dserver_dns_s * next;
@@ -59,7 +50,7 @@ struct dserver_subnet_s
 	char domain_name[32]; // opt 15
 	
 	dserver_router_t  * routers; // opt 3
-	dserver_pool_t    * pools;
+	queue_t            * pools;
 	dserver_dns_t     * dns_servers; // opt 6
 	
 	int free_addresses;

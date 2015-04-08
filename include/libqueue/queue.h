@@ -37,5 +37,14 @@ int delete_ptr (queue_t * queue, qelement_t * p); //Функция удален�
 queue_t * init_queues(int count, int mode);
 void uninit_queues(queue_t * queues, int count);
 
+#define Q_FOREACH(__type__, __point__, __queue__, __body__) \
+     { \
+        qelement_t * Q_ITER; \
+        for ( Q_ITER = (__queue__)->head; Q_ITER != NULL; Q_ITER = Q_ITER->next) \
+        { \
+            __type__ __point__ = (__type__) (Q_ITER -> data); \
+            __body__ \
+        }    \
+    }
 
 #endif
