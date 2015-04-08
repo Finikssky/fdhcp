@@ -127,22 +127,24 @@ int create_offer ( void * iface, unsigned char * options, u_int32_t * y_addr, lo
 	int cnt = 0;
 	dserver_interface_t * interface = ( dserver_interface_t * ) iface;
 	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
+	dserver_subnet_t * f_subnet = NULL;
 
-	while ( subnet != NULL )
-	{
-		if ( subnet->free_addresses != 0 ) break;
+	Q_FOREACH(dserver_subnet_t *, subnet, settings->subnets,
+		if ( subnet->free_addresses != 0 ) 
+		{
+			f_subnet = subnet;
+			break;
+		}
 		printf( "no free addresses in subnet\n" );
-		subnet = subnet->next;
-	}
+	)
 
-	if ( subnet == NULL )
+	if ( f_subnet == NULL )
 	{
 		printf( "No subnet to lease!\n" );
 		return -1;
 	}
 
-	Q_FOREACH(ip_address_range_t *, entry, subnet->pools,
+	Q_FOREACH(ip_address_range_t *, entry, f_subnet->pools,
 		int ip = try_give_ip( entry );
 		if ( -1 != ip )
 		{
@@ -152,7 +154,7 @@ int create_offer ( void * iface, unsigned char * options, u_int32_t * y_addr, lo
 		}
 	)
 
-	cnt = create_server_options( options, subnet, interface, ltime );
+	cnt = create_server_options( options, f_subnet, interface, ltime );
 	if ( -1 == cnt ) return -1;
 	return (cnt + 7 );
 }
@@ -163,11 +165,10 @@ int create_ack ( void * iface, unsigned char * options, u_int32_t * y_addr, long
 	int cnt = 0;
 	dserver_interface_t * interface = ( dserver_interface_t * ) iface;
 	dserver_if_settings_t * settings = &interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
+	dserver_subnet_t * f_subnet = NULL;
 
 	int found = 0;
-	while ( subnet != NULL )
-	{
+	Q_FOREACH(dserver_subnet_t *, subnet, settings->subnets, 
 		Q_FOREACH(ip_address_range_t *, entry, subnet->pools, 
 			if ( ip_address_range_have_address( entry, y_addr ) )
 			{
@@ -175,9 +176,12 @@ int create_ack ( void * iface, unsigned char * options, u_int32_t * y_addr, long
 				break;
 			}
 		)
-		if ( found ) break;
-		subnet = subnet->next;
-	}
+		if ( found ) 
+		{	
+			f_subnet = subnet;
+			break;
+		}
+	)
 
 	if ( !found )
 	{
@@ -186,7 +190,7 @@ int create_ack ( void * iface, unsigned char * options, u_int32_t * y_addr, long
 		return -1;
 	}
 
-	cnt = create_server_options( options, subnet, interface, ltime );
+	cnt = create_server_options( options, f_subnet, interface, ltime );
 	if ( -1 == cnt ) return -1;
 	return (cnt + 7 );
 }

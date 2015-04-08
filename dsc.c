@@ -43,7 +43,8 @@ int get_iface_idx_by_name ( char * ifname, DSERVER * server );
 
 int init_interface_settings ( dserver_if_settings_t * settings )
 {
-	//TODO
+	if (NULL == settings->subnets) 
+		settings->subnets = init_queues(1, Q_STANDART_MODE);
 	return 0;
 }
 
@@ -90,9 +91,7 @@ int save_config ( DSERVER * server, char * c_file )
 
 			dserver_if_settings_t * settings = & interface->settings;
 
-			dserver_subnet_t * subnet = settings->subnets;
-			while ( subnet != NULL )
-			{
+			Q_FOREACH(dserver_subnet_t *, subnet, settings->subnets,
 				char subnet_mask[INET_ADDRSTRLEN];
 				char subnet_addr[INET_ADDRSTRLEN];
 				inet_ntop( AF_INET, &subnet->address, subnet_addr, sizeof (subnet_addr ) );
@@ -130,8 +129,7 @@ int save_config ( DSERVER * server, char * c_file )
 				)
 				fprintf( fd, "    %s\n", "end_subnet" );
 
-				subnet = subnet->next;
-			}
+			)
 			fprintf( fd, "end_interface\n" );
 		}
 	}
@@ -209,6 +207,8 @@ int load_interface ( FILE * fd, dserver_interface_t * interface )
 {
 	char com[128] = "";
 	char args[128] = "";
+	
+	interface->settings.subnets = init_queues(1, Q_STANDART_MODE);
 	while ( EOF != t_gets( fd, ':', com, sizeof (com ), 0 ) )
 	{
 		if ( 0 == strcmp( com, "enable" ) )
@@ -222,6 +222,7 @@ int load_interface ( FILE * fd, dserver_interface_t * interface )
 		else if ( 0 == strcmp( com, "subnet" ) )
 		{
 			t_gets( fd, 0, args, sizeof (args ), 0 );
+			
 			dserver_subnet_t * subnet = add_subnet_to_interface( interface, args );
 			if ( subnet != NULL )
 			{
@@ -265,6 +266,7 @@ int load_config ( DSERVER * server, char * c_file )
 				if ( - 1 == load_interface( fd, interface ) )
 				{
 					printf( "parse config error: can't reach end of interface" );
+					uninit_queues(interface->settings.subnets, 1);
 					return - 1;
 				}
 				break;
@@ -682,30 +684,20 @@ int get_iface_idx_by_name ( char * ifname, DSERVER * server )
 
 int del_subnet_from_interface ( dserver_interface_t * interface, char * args )
 {
-	dserver_subnet_t * subnet = search_subnet( interface, args );
+	dserver_subnet_t * subnet = search_subnet( interface, args);
 
 	if ( subnet == NULL ) return - 1;
 	else
 	{ //TODO fucking utechka uninit queues
-		printf( "delete subnet\n" );
-		dserver_subnet_t * prev = subnet->prev;
-		dserver_subnet_t * next = subnet->next;
-
-		if ( subnet == interface->settings.subnets )
-		{
-			free( interface->settings.subnets );
-			interface->settings.subnets = next;
-			if ( next )
-				interface->settings.subnets->prev = NULL;
-		}
-		else
-		{
-			if ( prev )
-				prev->next = subnet->next;
-			if ( next )
-				next->prev = subnet->prev;
-			free( subnet );
-		}
+		Q_FOREACH(dserver_subnet_t *, entry, interface->settings.subnets,
+			if (entry == subnet)
+			{
+				uninit_queues(subnet->routers, 1);
+				uninit_queues(subnet->dns_servers, 1);
+				uninit_queues(subnet->pools, 1);
+				delete_ptr(interface->settings.subnets, Q_ITER);
+			}
+		)
 
 		return 0;
 	}
@@ -716,8 +708,6 @@ int del_subnet_from_interface ( dserver_interface_t * interface, char * args )
 dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, char * args )
 { //todo refactoring
 	dserver_if_settings_t * settings = & interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
-	dserver_subnet_t * temp = NULL;
 
 	char * address;
 	char * mask;
@@ -751,50 +741,31 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 		return NULL;
 	}
 
-	while ( subnet != NULL )
-	{
+	Q_FOREACH(dserver_subnet_t *, subnet, settings->subnets,
 		if ( subnet->address == a_sa.sin_addr.s_addr && subnet->netmask == m_sa.sin_addr.s_addr )
 		{
 			printf( "Subnet %s/%s exist!\n", address, mask );
 			return NULL;
 		}
-		temp = subnet;
-		subnet = subnet->next;
-		printf( "%d go next\n", temp->address );
-	}
+	)
 
-	subnet = malloc( sizeof (dserver_subnet_t ) );
-	memset( subnet, 0, sizeof (*subnet ) );
-	subnet->address = a_sa.sin_addr.s_addr;
-	subnet->netmask = m_sa.sin_addr.s_addr;
-	subnet->free_addresses = 0;
-	subnet->lease_time = 0;
-	subnet->pools = init_queues( 1, Q_STANDART_MODE );
-	subnet->dns_servers = init_queues(1, Q_STANDART_MODE);
-	subnet->routers = init_queues(1, Q_STANDART_MODE);
-
-	if ( settings->subnets == NULL )
-	{
-		settings->subnets = subnet;
-		subnet->prev = NULL;
-		subnet->next = NULL;
-	}
-	else
-	{
-		temp->next = subnet;
-		subnet->next = NULL;
-		subnet->prev = temp;
-	}
+	dserver_subnet_t subnet;
+	memset( &subnet, 0, sizeof (subnet ) );
+	subnet.address = a_sa.sin_addr.s_addr;
+	subnet.netmask = m_sa.sin_addr.s_addr;
+	subnet.free_addresses = 0;
+	subnet.lease_time = 0;
+	subnet.pools = init_queues( 1, Q_STANDART_MODE );
+	subnet.dns_servers = init_queues(1, Q_STANDART_MODE);
+	subnet.routers = init_queues(1, Q_STANDART_MODE);
 
 	printf( "subnet %s/%s added\n", address, mask );
-
-	return subnet;
+	return (dserver_subnet_t *)push_queue(settings->subnets, 0, &subnet, sizeof(subnet));
 }
 
 dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args )
 {
 	dserver_if_settings_t * settings = & interface->settings;
-	dserver_subnet_t * subnet = settings->subnets;
 
 	char * address;
 	char * mask;
@@ -835,8 +806,7 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args 
 		return NULL;
 	}
 
-	while ( subnet != NULL )
-	{
+	Q_FOREACH(dserver_subnet_t *, subnet, settings->subnets,
 		if ( subnet->address == a_sa.sin_addr.s_addr && subnet->netmask == m_sa.sin_addr.s_addr )
 		{
 			printf( "Subnet %s/%s found!\n", address, mask );
@@ -852,8 +822,7 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args 
 		}
 		printf( "subnet---->>" );
 		printip( subnet->address );
-		subnet = subnet->next;
-	}
+	)
 
 	printf( "Subnet %s/%s not found!\n", address, mask );
 	return NULL;
@@ -1280,16 +1249,18 @@ int main ( )
 	init_ptable( PTABLE_COUNT );
 
 	//LOADING CONFIGURATION
-	DSERVER * temp_config = ( DSERVER * ) malloc( sizeof (*temp_config ) );
+	DSERVER * temp_config = ( DSERVER * ) malloc( sizeof (DSERVER) );
 	memset( temp_config, 0, sizeof (*temp_config ) );
 
 	if ( - 1 != load_config( temp_config, S_CONFIG_FILE ) )
 	{
 		init_interfaces( temp_config );
-		memcpy( &server, temp_config, sizeof (server ) );
+		memcpy( &server, temp_config, sizeof ( server ) );
 	}
 	else
+	{
 		init_interfaces( &server );
+	}
 
 	free( temp_config );
 	save_config( &server, S_CONFIG_FILE );

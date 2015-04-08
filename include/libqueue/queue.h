@@ -30,7 +30,7 @@ typedef struct queue
 	pthread_mutex_t  mutex;
 } queue_t;
 
-int push_queue(queue_t * queues, int qnum, void * data, size_t size); //Функция добавления сообщения в очередь с номером qnum
+void * push_queue(queue_t * queues, int qnum, void * data, size_t size); //Функция добавления сообщения в очередь с номером qnum
 int pop_queue (queue_t * queues, int qnum, void * data, size_t size); //Вытаскивает сообщение из очереди с номером qnum
 int delete_ptr (queue_t * queue, qelement_t * p); //Функция удаления первого элемента очереди
 

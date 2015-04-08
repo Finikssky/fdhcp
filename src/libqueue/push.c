@@ -1,7 +1,7 @@
 #include "libqueue/queue.h"
 #include <string.h>
 
-int push_queue(queue_t * queues, int qnum, void * data, size_t size)
+void * push_queue(queue_t * queues, int qnum, void * data, size_t size)
 {
 	queue_t * queue   = &queues[qnum];
 	
@@ -9,11 +9,11 @@ int push_queue(queue_t * queues, int qnum, void * data, size_t size)
 	
 	qelement_t * temp = malloc(sizeof(qelement_t));
 	
-	if (temp == NULL) return -1;
+	if (temp == NULL) return NULL;
 	
-	temp->next      = NULL;
-	temp->prev      = NULL;
-	temp->data      = malloc(size); 
+	temp->next     = NULL;
+	temp->prev     = NULL;
+	temp->data     = malloc(size); 
 	temp->data_size = size;
 	memcpy(temp->data, data, size);
 	
@@ -25,7 +25,7 @@ int push_queue(queue_t * queues, int qnum, void * data, size_t size)
 	else
 	{
 		queue->tail->next = temp;
-		temp->prev        = queue->tail;
+		temp->prev       = queue->tail;
 		queue->tail       = temp;
 	}
 	
@@ -36,5 +36,5 @@ int push_queue(queue_t * queues, int qnum, void * data, size_t size)
 	
  	pthread_mutex_unlock(&queue->mutex);
 	
-	return 0;
+	return temp->data;
 }
