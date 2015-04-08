@@ -17,14 +17,6 @@ typedef struct qmessage
 } qmessage_t;
 
 //SERVER
-struct dserver_router_s
-{
-	struct dserver_router_s * next;
-	u_int32_t address;
-};
-
-typedef struct dserver_router_s dserver_router_t;
-
 typedef struct {
 	long default_lease_time;
 } dserver_settings_global_t;
@@ -41,7 +33,7 @@ struct dserver_subnet_s
 	char host_name[32]; // opt 12
 	char domain_name[32]; // opt 15
 	
-	dserver_router_t  * routers; // opt 3
+	queue_t         * routers; // opt 3
 	queue_t         * pools;
 	queue_t         * dns_servers; // opt 6
 	

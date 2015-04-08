@@ -77,25 +77,15 @@ int create_server_options ( unsigned char * options, dserver_subnet_t * subnet, 
 	cnt += 4;
 
 	//option 3, routers, must have 
-	dserver_router_t * router = subnet->routers;
-	if ( router != NULL )
+	if ( subnet->routers->elements > 0 )
 	{
-		int router_len = 0;
-		int router_idx;
-
 		options[cnt++] = 3;
-		router_idx = cnt;
-		cnt++;
+		options[cnt++] = subnet->routers->elements * sizeof(int);
 
-		while ( router != NULL )
-		{
-			memcpy( options + cnt, &router->address, sizeof (router->address ) );
-			cnt += 4;
-			router_len += 4;
-			router = router->next;
-		}
-
-		options[router_idx] = router_len;
+		Q_FOREACH(int *, router, subnet->routers,
+			memcpy( options + cnt, router, sizeof (*router) );
+			cnt += sizeof (*router);
+		)
 	}
 
 	// option 6, dns-servers

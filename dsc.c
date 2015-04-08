@@ -123,14 +123,11 @@ int save_config ( DSERVER * server, char * c_file )
 					fprintf( fd, "        %s: %s\n", "dns-server", dns_address );
 				)
 
-				dserver_router_t * router = subnet->routers;
-				while ( router != NULL )
-				{
+				Q_FOREACH(int *, router, subnet->routers, 
 					char router_address[INET_ADDRSTRLEN];
-					inet_ntop( AF_INET, &router->address, router_address, sizeof (router_address ) );
+					inet_ntop( AF_INET, router, router_address, sizeof (router_address ) );
 					fprintf( fd, "        %s: %s\n", "router", router_address );
-					router = router->next;
-				}
+				)
 				fprintf( fd, "    %s\n", "end_subnet" );
 
 				subnet = subnet->next;
@@ -774,6 +771,7 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 	subnet->lease_time = 0;
 	subnet->pools = init_queues( 1, Q_STANDART_MODE );
 	subnet->dns_servers = init_queues(1, Q_STANDART_MODE);
+	subnet->routers = init_queues(1, Q_STANDART_MODE);
 
 	if ( settings->subnets == NULL )
 	{
@@ -970,9 +968,6 @@ int del_dns_from_subnet ( dserver_subnet_t * subnet, char * address )
 
 int add_router_to_subnet ( dserver_subnet_t * subnet, char * address )
 {
-	dserver_router_t * router = subnet->routers;
-	dserver_router_t * temp = NULL;
-
 	if ( address == NULL ) return - 1;
 
 	u_int32_t ip = inet_addr( address );
@@ -984,26 +979,15 @@ int add_router_to_subnet ( dserver_subnet_t * subnet, char * address )
 		return - 1;
 	}
 
-	while ( router != NULL )
-	{
-		if ( ip == router->address )
+	Q_FOREACH(int *, entry, subnet->routers,
+		if ( ip == *entry )
 		{
-			printf( "router is exist" );
+			printf( "router is exist\n" );
+			return -1;
 		}
-		temp = router;
-		router = router->next;
-	}
+	)
 
-	router = malloc( sizeof (dserver_router_t ) );
-	memset( router, 0, sizeof (*router ) );
-	router->next = NULL;
-
-	if ( temp )
-		temp->next = router;
-	else
-		subnet->routers = router;
-
-	router->address = ip;
+	push_queue(subnet->routers, 0, &ip, sizeof(ip));
 	printf( "router %s added\n", address );
 
 	return 0;
@@ -1011,31 +995,19 @@ int add_router_to_subnet ( dserver_subnet_t * subnet, char * address )
 
 int del_router_from_subnet ( dserver_subnet_t * subnet, char * address )
 {
-	dserver_router_t * router = subnet->routers;
-	dserver_router_t * temp = NULL;
-
 	if ( address == NULL ) return - 1;
 
 	u_int32_t ip = inet_addr( address ); //TODO parsing
 	if ( ip == - 1 ) return - 1;
 
-	while ( router != NULL )
-	{
-		if ( ip == router->address )
+	Q_FOREACH(int *, entry, subnet->routers,
+		if ( ip == *entry )
 		{
 			printf( "del router-server %s\n", address );
-			if ( temp )
-				temp->next = router->next;
-			else
-				subnet->routers = router->next;
-
-			free( router );
+			delete_ptr(subnet->routers, Q_ITER);
 			return 0;
 		}
-
-		temp = router;
-		router = router->next;
-	}
+	)
 
 	printf( "router-server %s is not exist\n", address );
 
