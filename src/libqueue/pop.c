@@ -9,7 +9,7 @@ int pop_queue(queue_t * queues, int qnum, void * data, size_t size)
 		sem_wait(&queue->semid);               //Ожидаем появления сообщения
 	pthread_mutex_lock(&queue->mutex);     //Блокируем
 	
-	if (queue->head == NULL) 
+	if (queue->head == NULL || data == NULL || size <= 0) 
 	{
 		pthread_mutex_unlock(&queue->mutex);
 		return -1;
