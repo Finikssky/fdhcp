@@ -40,5 +40,8 @@ void * push_queue(queue_t * queues, int qnum, void * data, size_t size)
 	
  	pthread_mutex_unlock(&queue->mutex);
 	
-	return temp->data;
+	if (queue->mode == Q_STANDART_MODE)
+		return temp->data;
+	
+	return NULL;
 }

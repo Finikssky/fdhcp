@@ -14,8 +14,8 @@ struct qelement
 { 
 	struct qelement * next;
 	struct qelement * prev;
-	void            * data;
 	size_t            data_size;
+	void            * data;
 };
 
 typedef struct qelement qelement_t;
