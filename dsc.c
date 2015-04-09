@@ -1244,7 +1244,7 @@ void safe_exit()
 	server_release(&MAIN_CONFIG);
 	if ( 0 == pthread_cancel( manipulate_tid) )
 	{
-		void *res;
+		void *res = NULL;
 		pthread_join( manipulate_tid, &res );
 		if ( res == PTHREAD_CANCELED )
 			printf( "close manipulate thread\n");
