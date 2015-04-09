@@ -13,44 +13,16 @@ typedef struct qmessage
 {
 	int             code;
 	int             size;
-	unsigned char * packet;
+	void          * packet;
 } qmessage_t;
 
 //SERVER
-
-struct dserver_pool_s
-{
-	struct dserver_pool_s * next;
-	ip_address_range_t range;
-};
-
-typedef struct dserver_pool_s dserver_pool_t;
-
-struct dserver_dns_s
-{
-	struct dserver_dns_s * next;
-	u_int32_t address;
-};
-
-typedef struct dserver_dns_s dserver_dns_t;
-
-struct dserver_router_s
-{
-	struct dserver_router_s * next;
-	u_int32_t address;
-};
-
-typedef struct dserver_router_s dserver_router_t;
-
 typedef struct {
 	long default_lease_time;
 } dserver_settings_global_t;
 
 struct dserver_subnet_s
 {
-	struct dserver_subnet_s * next;
-	struct dserver_subnet_s * prev;
-	
 	u_int32_t netmask; // opt 1
 	u_int32_t address;
 	
@@ -58,9 +30,9 @@ struct dserver_subnet_s
 	char host_name[32]; // opt 12
 	char domain_name[32]; // opt 15
 	
-	dserver_router_t  * routers; // opt 3
-	dserver_pool_t    * pools;
-	dserver_dns_t     * dns_servers; // opt 6
+	queue_t         * routers; // opt 3
+	queue_t         * pools;
+	queue_t         * dns_servers; // opt 6
 	
 	int free_addresses;
 };
@@ -70,7 +42,7 @@ typedef struct dserver_subnet_s dserver_subnet_t;
 typedef struct 
 {
 	dserver_settings_global_t global;
-	dserver_subnet_t * subnets;
+	queue_t * subnets;
 } dserver_if_settings_t;
 
 typedef struct {
@@ -79,7 +51,6 @@ typedef struct {
 	int                   listen_sock; //нужно ли их 2
 	int                   send_sock;
 	int                   cci;
-	int                   c_idx;
 	pthread_t             listen;
 	pthread_t             sender;
 	pthread_t             fsm;
