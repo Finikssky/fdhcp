@@ -20,11 +20,12 @@
 
 typedef struct request
 {
-	unsigned char type;
+	unsigned char  type;
 	int           xid;
 	u_int32_t     req_address;
+         u_int32_t     client_address;
          u_int32_t     req_server_address;
-	unsigned char mac[16];
+	unsigned char  mac[16];
 } request_t;
 
 typedef struct cl_session

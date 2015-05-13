@@ -288,6 +288,11 @@ u_int32_t create_packet ( char * iface, frame_t * frame, int btype, int dtype, v
 	{
 		//TODO
 	}
+	
+	if ( dtype == DHCPINFORM)
+	{
+		frame->p_dhc.ciaddr.s_addr = get_iface_ip(iface);
+	}
 
 	frame->p_dhc.options[cnt++] = 255; //options end
 

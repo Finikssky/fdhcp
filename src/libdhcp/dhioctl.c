@@ -33,6 +33,8 @@ const char * stringize_dtype(int type)
 			return "DHCPACK";
 		case DHCPNAK:
 			return "DHCPNAK";
+		case DHCPINFORM:
+			return "DHCPINFORM";
 		default:
 			return "UNKNOWN";
 	}

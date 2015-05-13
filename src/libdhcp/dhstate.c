@@ -35,6 +35,7 @@ int get_stype(int stat, struct dhcp_packet * dhc)
 	{
 		if (type == DHCPDISCOVER) return DHCPDISCOVER;
 		if (type == DHCPREQUEST)  return DHCPREQUEST;
+		if (type == DHCPINFORM)  return DHCPINFORM;
 	}
 	if (stat == OFFER)
 	{
@@ -42,9 +43,10 @@ int get_stype(int stat, struct dhcp_packet * dhc)
 	}
 	if (stat == ANSWER)
 	{
-		if (type == DHCPREQUEST)  return DHCPREQUEST;
-		if (type == DHCPDECLINE)  return DHCPDECLINE;
-		if (type == DHCPRELEASE )  return DHCPRELEASE;
+		if (type == DHCPREQUEST) return DHCPREQUEST;
+		if (type == DHCPDECLINE) return DHCPDECLINE;
+		if (type == DHCPRELEASE) return DHCPRELEASE;
+		if (type == DHCPINFORM)  return DHCPINFORM;
 	}
 
 	add_log("Validation fail! Unknown signal!");
@@ -57,6 +59,7 @@ void get_need_info(request_t * info, frame_t * frame)
 	
 	struct dhcp_packet * dhc = &frame->p_dhc;
 	info->xid  = dhc->xid;
+	info->client_address = dhc->ciaddr.s_addr;
 	
 	get_option(dhc, 53, &info->type, sizeof(info->type));	
 	if (-1 == get_option(dhc, 50, &info->req_address, sizeof(info->req_address))) 

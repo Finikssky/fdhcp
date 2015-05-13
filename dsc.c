@@ -20,7 +20,7 @@
 #include <net/if.h>
 #include <ifaddrs.h>
 
-#define PTABLE_COUNT   10
+#define PTABLE_COUNT   12
 #define S_CONFIG_FILE "dsc.conf"
 
 DSERVER MAIN_CONFIG;
@@ -378,28 +378,39 @@ int send_answer ( void * info, void * arg )
 	memcpy( frame.p_dhc.chaddr, request->mac, sizeof (frame.p_dhc.chaddr ) );
 
 	u_int32_t iface_ip = get_iface_ip(interface->name);
-	if (request->req_server_address != iface_ip) return -1;
+	if (request->type == DHCPREQUEST && request->req_server_address != iface_ip) return -1;
 	
-	//Проверяем доступен ли адрес
-	int result = get_proof( request->mac, &request->req_address );
-	if ( result > 0 )
+	if (request->type == DHCPINFORM)
 	{
-		//В случае положительного ответа отправляем АСК
+		frame.p_dhc.yiaddr.s_addr = request->client_address;
+		
 		ltime = create_packet( interface->name, &frame, 2, DHCPACK, ( void * ) interface );
 		if ( ltime == - 1 ) return - 1;
 		create_ethheader( &frame, macs, request->mac, ETH_P_IP );
-		create_ipheader( &frame, get_iface_ip( interface->name ), frame.p_dhc.yiaddr.s_addr );
-		s_add_lease( interface, frame.p_dhc.yiaddr.s_addr, request->mac, ltime ); //TODO refactoring lease_time
+		create_ipheader( &frame, get_iface_ip( interface->name ), request->client_address );
 	}
-	else if ( result == 0 )
+	else
 	{
-		//В случае отрицательного ответа отправляем NAK
-		create_packet( interface->name, &frame, 2, DHCPNAK, ( void * ) interface );
-		create_ethheader( &frame, macs, macb, ETH_P_IP );
-		create_ipheader( &frame, get_iface_ip( interface->name ), INADDR_BROADCAST );
+		//Проверяем доступен ли адрес
+		int result = get_proof( request->mac, &request->req_address );
+		if ( result > 0 )
+		{
+			//В случае положительного ответа отправляем АСК
+			ltime = create_packet( interface->name, &frame, 2, DHCPACK, ( void * ) interface );
+			if ( ltime == - 1 ) return - 1;
+			create_ethheader( &frame, macs, request->mac, ETH_P_IP );
+			create_ipheader( &frame, get_iface_ip( interface->name ), frame.p_dhc.yiaddr.s_addr );
+			s_add_lease( interface, frame.p_dhc.yiaddr.s_addr, request->mac, ltime ); //TODO refactoring lease_time
+		}
+		else if ( result == 0 )
+		{
+			//В случае отрицательного ответа отправляем NAK
+			create_packet( interface->name, &frame, 2, DHCPNAK, ( void * ) interface );
+			create_ethheader( &frame, macs, macb, ETH_P_IP );
+			create_ipheader( &frame, get_iface_ip( interface->name ), INADDR_BROADCAST );
+		}
+		else if ( result == - 1 ) return - 1;
 	}
-	else if ( result == - 1 ) return - 1;
-
 	create_udpheader( &frame, DHCP_SERVER_PORT, DHCP_CLIENT_PORT );
 
 	qmessage_t message;
@@ -606,7 +617,7 @@ int disable_interface (dserver_interface_t * interface)
 void init_ptable ( int size ) //TODO release ptable
 {
 	ptable_count = size;
-	ptable = realloc( ptable, size * sizeof (struct pass ) );
+	ptable = realloc( ptable, size * sizeof (struct pass) );
 
 	ptable[0].currstate = START;
 	ptable[0].in = DHCPDISCOVER;
@@ -657,6 +668,16 @@ void init_ptable ( int size ) //TODO release ptable
 	ptable[9].in = 0;
 	ptable[9].nextstate = CLOSE;
 	ptable[9].fun = send_nak;
+	
+	ptable[10].currstate = START;
+	ptable[10].in = DHCPINFORM;
+	ptable[10].nextstate = ANSWER;
+	ptable[10].fun = NULL;
+	
+	ptable[11].currstate = ANSWER;
+	ptable[11].in = DHCPINFORM;
+	ptable[11].nextstate = ANSWER;
+	ptable[11].fun = send_answer;
 }
 
 void release_ptable()
