@@ -377,6 +377,9 @@ int send_answer ( void * info, void * arg )
 	frame.p_dhc.yiaddr.s_addr = request->req_address;
 	memcpy( frame.p_dhc.chaddr, request->mac, sizeof (frame.p_dhc.chaddr ) );
 
+	u_int32_t iface_ip = get_iface_ip(interface->name);
+	if (request->req_server_address != iface_ip) return -1;
+	
 	//Проверяем доступен ли адрес
 	int result = get_proof( request->mac, &request->req_address );
 	if ( result > 0 )

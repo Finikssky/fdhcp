@@ -30,7 +30,10 @@ void clear_lease(unsigned char * mac)
 	//Читаем записи из базы и записываем действительные во временный файл
 	while (fread(&lease, sizeof(lease), 1, fd))
 	{
-		if (!memcmp(lease.haddr, mac, sizeof(lease.haddr))) continue;
+		if (NULL != mac)
+		{
+			if (!memcmp(lease.haddr, mac, sizeof(lease.haddr))) continue;
+		}
 		
 		gettimeofday(&tv, NULL);
 		if (lease.stime + lease.ltime > tv.tv_sec) 

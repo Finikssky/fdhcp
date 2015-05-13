@@ -66,6 +66,14 @@ void get_need_info(request_t * info, frame_t * frame)
 		printf("requested ");
 		printip(info->req_address);
 	}
+	
+	if (-1 == get_option(dhc, 54, &info->req_server_address, sizeof(info->req_server_address))) 
+		printf("can't get 54 opt\n");	
+	else
+	{
+		printf("requested server ");
+		printip(info->req_address);
+	}
 	memcpy(info->mac, dhc->chaddr, sizeof(info->mac));
 	
 	free(frame);
