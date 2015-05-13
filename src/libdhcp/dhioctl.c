@@ -27,6 +27,8 @@ const char * stringize_dtype(int type)
 			return "DHCPREQUEST";
 		case DHCPDECLINE:
 			return "DHCPDECLINE";
+		case DHCPRELEASE:
+			return "DHCPRELEASE";
 		case DHCPACK:
 			return "DHCPACK";
 		case DHCPNAK:

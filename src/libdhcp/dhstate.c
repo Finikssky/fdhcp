@@ -44,6 +44,7 @@ int get_stype(int stat, struct dhcp_packet * dhc)
 	{
 		if (type == DHCPREQUEST)  return DHCPREQUEST;
 		if (type == DHCPDECLINE)  return DHCPDECLINE;
+		if (type == DHCPRELEASE )  return DHCPRELEASE;
 	}
 
 	add_log("Validation fail! Unknown signal!");

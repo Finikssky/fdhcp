@@ -3,7 +3,7 @@
 
 #include "core.h"
 
-void clear_lease();
+void clear_lease(unsigned char * mac);
 
 void add_lease(char * iface, u_int32_t, u_int32_t, long time);
 int get_lease(char * iface, unsigned char * cip, unsigned char * sip);
