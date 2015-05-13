@@ -14,7 +14,7 @@ char * get_host_from_pack(struct dhcp_packet *dhc); //Rturn host
 void print_dhcp_options(struct dhcp_packet *dhc);
 void printip(u_int32_t ip); 
 void printmac(unsigned char *mac);
-void add_log(char *s);
+void add_log(const char *s);
 
 const char * stringize_dtype(int type);
 #endif
