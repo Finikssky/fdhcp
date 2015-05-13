@@ -32,13 +32,14 @@ int init_interfaces(DCLIENT * client)
 	
 	for (i = 0, iter = ifa; iter != NULL && i < MAX_INTERFACES; i++, iter = iter->ifa_next)
 	{
+		client->interfaces[i].settings.renew_interval = 10;
 		if ( -1 != get_iface_idx_by_name(iter->ifa_name, client) ) continue;
-		if ( (iter->ifa_flags & IFF_POINTOPOINT) == IFF_POINTOPOINT ) continue;
+		if ( (iter->ifa_flags & IFF_POINTOPOINT) == IFF_POINTOPOINT )  continue; 
 		if ( (iter->ifa_flags & IFF_LOOPBACK) == IFF_LOOPBACK ) continue;
 		
 		strncpy(client->interfaces[i].name, iter->ifa_name, sizeof(client->interfaces[i].name));
 		client->interfaces[i].enable = 0;
-		printf("init interface: %s\n", client->interfaces[i].name);
+		printf("init interface: %d %s\n", i, client->interfaces[i].name);
 	}
 	
 	freeifaddrs(ifa);
@@ -291,10 +292,12 @@ void * iface_loop (void * iface)
 	unsigned char macs[6];
 	unsigned char macd[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
 	frame_t frame; memset(&frame, 0, sizeof(frame));
-	u_int32_t myxid;
+	u_int32_t myxid = 0;
 	int ret;
 	u_int32_t REQ_ADDR = INADDR_BROADCAST;
 
+	goto renewal;
+	
 start:
 
 	while(1)
@@ -321,7 +324,9 @@ request:
 		printip(REQ_ADDR);
 		set_my_mac(interface->name, macs);	
 		memset(&frame, 0, sizeof(frame));
-		create_packet(interface->name, &frame, BOOTP_REQUEST, DHCPREQUEST, (void *)interface);
+		int req_xid = create_packet(interface->name, &frame, BOOTP_REQUEST, DHCPREQUEST, (void *)interface);
+		if (myxid == 0) myxid = req_xid;
+		
 		frame.p_dhc.xid = myxid; //important
 		create_ethheader(&frame, macs, macd, ETH_P_IP);
 		create_ipheader(&frame, INADDR_ANY, REQ_ADDR);
@@ -354,10 +359,11 @@ request:
 	
 	//Применяем полученную конфигурацию на интерфейс
 	apply_interface_settings(&frame, interface->name);
-	
+
+renewal:		
 	while(1)
 	{
-		usleep(20000000);
+		if (myxid != 0) usleep(interface->settings.renew_interval * 1000000);
 	
 		//Получаем состояние аренды
 		ret = get_lease(interface->name, (unsigned char *)NULL, (unsigned char *)&REQ_ADDR);
@@ -366,18 +372,23 @@ request:
 			printf("RENEWING! \n");
 			goto request;
 		}
-		if (ret == T_REBINDING) 
+		else if (ret == T_REBINDING) 
 		{ 
 			printf("REBINDING! \n");
 			REQ_ADDR = INADDR_BROADCAST;
 			goto request;
 		}
-		if (ret == T_END || ret == -1) 
+		else if (ret == T_END || ret == -1) 
 		{ 
 			printf("END LEASE! \n");
 			REQ_ADDR = INADDR_BROADCAST;
 			goto start;
 		}
+		else if (myxid == 0)
+		{
+			goto request;
+		}
+		
 	}
 
 }

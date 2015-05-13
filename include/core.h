@@ -72,6 +72,7 @@ typedef struct
 	char server_address[INET_ADDRSTRLEN];
 	int  server_port;
 	int  client_port;
+        long  renew_interval;
 } dclient_if_settings_t;
 
 typedef struct {

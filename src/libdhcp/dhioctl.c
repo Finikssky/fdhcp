@@ -48,7 +48,7 @@ void printmac(unsigned char * mac)
 }
 
 //Добавляем сообщение в лог
-void add_log(char * s)
+void add_log(const char * s)
 {
 	char filename[32];
 	sprintf(filename, "log_%d.txt", getpid());
