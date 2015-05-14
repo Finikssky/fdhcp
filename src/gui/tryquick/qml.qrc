@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>StartView.qml</file>
+        <file>SButton.qml</file>
+        <file>DestView.qml</file>
+    </qresource>
+</RCC>
