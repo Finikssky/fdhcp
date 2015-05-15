@@ -1,5 +1,11 @@
+
+
 #ifndef DCTP_H
 #define DCTP_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <netinet/in.h>
 
@@ -124,4 +130,10 @@ int release_DCTP_socket(int sock);
 
 DCTP_cmd_code_t parse_DCTP_command (DCTP_COMMAND * in, char * ifname );
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif 
+
+
