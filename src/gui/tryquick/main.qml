@@ -16,7 +16,8 @@ Window
     {
         id: dctp_iface
 
-        module: "server"
+        module: "server";
+        module_ip: "127.0.0.1";
     }
 
     //graphic container
@@ -28,7 +29,6 @@ Window
         {
             id: startview
             color: "black";
-            visible: true
             anchors.fill: parent
         }
 
@@ -36,20 +36,41 @@ Window
         {
             id: destview
             color: "black";
-            visible: false
             anchors.fill: parent
         }
 
+        ConfigureView
+        {
+            id: configureview
+            color: "black";
+            anchors.fill: parent
+        }
+
+
+    }
+
+
+    Item {
+        id: mainwin_fsm
+        state: "STARTVIEW";
         states: [
             State {
               name: "STARTVIEW"
-              when: startview.next == true
-              PropertyChanges { target: startview; visible: false;}
-              PropertyChanges { target: destview;  visible: true;}
+              PropertyChanges { target: startview; visible: true;  }
+              PropertyChanges { target: destview;  visible: false; }
+              PropertyChanges { target: configureview;  visible: false; }
             },
             State {
               name: "DESTVIEW"
-              when: container.focus == true
+              PropertyChanges { target: destview;  visible: true;  }
+              PropertyChanges { target: startview; visible: false; }
+              PropertyChanges { target: configureview;  visible: false; }
+            },
+            State {
+              name: "CONFIGUREVIEW"
+              PropertyChanges { target: configureview;  visible: true; }
+              PropertyChanges { target: destview;  visible: false;  }
+              PropertyChanges { target: startview; visible: false; }
             }
           ]
     }

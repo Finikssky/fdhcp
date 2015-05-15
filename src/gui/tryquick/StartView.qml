@@ -4,8 +4,6 @@ Rectangle
 {
     id: startview
 
-    property bool next;
-
     Rectangle
     {
         id: choisetext
@@ -41,7 +39,7 @@ Rectangle
              width: 1
         }
 
-        onButtonClick: { startview.next = true; dctp_iface.module = "server"; }
+        onButtonClick: { mainwin_fsm.state = "DESTVIEW"; dctp_iface.module = "server"; }
     }
 
     SButton
@@ -61,7 +59,7 @@ Rectangle
              width: 1
          }
 
-        onButtonClick: { startview.next = true; dctp_iface.module = "client"; }
+        onButtonClick: { mainwin_fsm.state = "DESTVIEW"; dctp_iface.module = "client"; }
     }
 }
 

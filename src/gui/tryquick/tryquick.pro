@@ -7,9 +7,12 @@ SOURCES += main.cpp \
 
 RESOURCES += qml.qrc
 
-LIBS += /home/finiks/diplom/fdhcp/libs/libdyndctp.so
-HEADERS += /home/finiks/diplom/fdhcp/include/libdctp/dctp.h \
-    dctpinterface.h
+INCLUDEPATH += /home/finiks/diplom/fdhcp/include
+QMAKE_LIBDIR += /home/finiks/diplom/fdhcp/libs
+LIBS += -ldyndctp
+
+HEADERS += dctpinterface.h
+
 
 # Additional import path used to resolve QML modules in Qt Creator's code model
 QML_IMPORT_PATH =
