@@ -29,61 +29,31 @@ Rectangle {
             }
         }
 
-        Rectangle
+        TextInputField
         {
-            id: access_view_password
-            color: "blue"
+            id: access_view_input_field
 
             width: (parent.width - parent.width/5)
             height: (parent.height / 10)
 
-            anchors.centerIn: parent;
+            anchors.centerIn: parent
             anchors.verticalCenterOffset: 0.7 * (parent.height / 10);
 
-            TextInput
+            bkcolor: "blue"
+            textcolor: "yellow"
+
+            onReturnPressed:
             {
-                id: access_view_password_textinput
-                anchors.verticalCenter: parent.verticalCenter
-
-                color: "yellow"
-                enabled: true;
-                maximumLength: 64;
-                echoMode: TextInput.Password
-                passwordCharacter: "*"
-                autoScroll: true;
-
-                onTextChanged:
-                {
-                    ensureVisible(1)
-                }
-
-                onAccepted:
-                {
-                    dctp_iface.password = text;
-                }
-
-            }
-
-            border
-            {
-                color: "red"
-                width: 1
-            }
-
-            MouseArea
-            {
-                anchors.fill: parent
-                onClicked: access_view_password_textinput.focus = true
+                dctp_iface.password = text;
             }
         }
+
     }
 
     states: [
         State {
             name: "access: insert password"
             PropertyChanges { target: access_view; visible: true; }
-            PropertyChanges { target: access_view_password_textinput; focus: true; }
-            PropertyChanges { target: access_view_password_textinput; text: ""; }
         }
     ]
 

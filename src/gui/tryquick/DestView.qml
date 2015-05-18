@@ -169,6 +169,7 @@ Rectangle
             StateChangeScript {
                 script: try_connect_function();
             }
+
         }
     ]
 
