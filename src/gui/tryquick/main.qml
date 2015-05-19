@@ -15,9 +15,12 @@ Window
     DCTP
     {
         id: dctp_iface
+        property string conn_status: "";
 
         module: "server";
         module_ip: "127.0.0.1";
+        onConnectSuccess: conn_status = "Successfuly connected"
+        onConnectFail: conn_status = "Connection failed"
     }
 
     //graphic container

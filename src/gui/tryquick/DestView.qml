@@ -1,4 +1,5 @@
 import QtQuick 2.0
+import dctpinterface 1.0
 
 Rectangle
 {
@@ -151,7 +152,7 @@ Rectangle
                 id: try_connect_text
                 anchors.centerIn: parent
                 color: "yellow";
-                text: qsTr("Connection...")
+                text: dctp_iface.conn_status;
             }
         }
     }
@@ -167,11 +168,31 @@ Rectangle
             PropertyChanges { target: try_connect;    visible: true;  }
             PropertyChanges { target: choise_connect; visible: false; }
             StateChangeScript {
-                script: try_connect_function();
+                script:
+                {
+                    dctp_iface.conn_status = "Connecting";
+                    dctp_iface.doInThread(dctp_iface.tryConnect());
+                    loop_loading.running = true;
+                }
             }
-
         }
     ]
+
+    Timer {
+        id: loop_loading
+        interval: 400
+        repeat: true;
+        running: false;
+        property int dots: 0;
+
+        onTriggered:
+        {
+            dctp_iface.conn_status = "Connecting";
+            for(var i = 0; i < dots; i++) dctp_iface.conn_status += ".";
+            dots++;
+            dots %= 4;
+        }
+    }
 
     Timer {
         property bool cn_status: false;
@@ -182,19 +203,5 @@ Rectangle
         onTriggered: cn_status == false ? destview.state = "choose" : mainwin_fsm.state = "CONFIGUREVIEW";
     }
 
-    function try_connect_function()
-    {
-        if (-1 == dctp_iface.tryConnect())
-        {
-           try_connect_text.text = "Sorry, connection failed";
-        }
-        else
-        {
-           try_connect_text.text = "Success!";
-           delay_timer.cn_status = true;
-        }
-
-        delay_timer.running = true;
-    }
 }
 

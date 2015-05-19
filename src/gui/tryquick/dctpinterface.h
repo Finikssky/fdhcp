@@ -2,7 +2,11 @@
 #define DCTPINTERFACE_H
 
 #include <QObject>
+#include <QRunnable>
+#include <QDebug>
 //#include "dctp.h"
+
+
 
 class DCTPinterface : public QObject
 {
@@ -12,6 +16,35 @@ class DCTPinterface : public QObject
     Q_PROPERTY(QString password READ getPassword WRITE setPassword NOTIFY passwordChanged)
 
 public:
+    typedef void (DCTPinterface::*DCTPinterfaceFunction) (void);
+    typedef struct { QString fname; DCTPinterfaceFunction fun; } built_t;
+
+private:
+    static built_t threadable_funcs[] =
+    {
+        { "tryConnect", &DCTPinterface::tryConnect }
+    };
+
+protected:
+    class SingleTask : public QRunnable
+    {
+        DCTPinterfaceFunction fun;
+        DCTPinterface * context;
+        public:
+            SingleTask(DCTPinterface * CONTEXT, DCTPinterfaceFunction FUN)
+            {
+                fun = FUN;
+                context = CONTEXT;
+            }
+
+        void run()
+        {
+           qDebug() << "ha!";
+           (context->*fun)();
+        }
+    };
+
+public:
     explicit DCTPinterface(QObject *parent = 0);
     ~DCTPinterface();
 
@@ -19,6 +52,8 @@ signals:
     void moduleChanged();
     void moduleIpChanged();
     void passwordChanged();
+    void connectSuccess();
+    void connectFail();
 
 public slots:
     QString getModule();
@@ -30,8 +65,10 @@ public slots:
     QString getPassword();
     void setPassword(QString);
 
-    int tryConnect();
+    void tryConnect();
     int tryAccess();
+
+    void doInThread(QString);
 
 private:
     QString _module;

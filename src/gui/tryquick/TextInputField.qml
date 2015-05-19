@@ -23,7 +23,7 @@ Rectangle
         property string fl_left_window: ""
         property string fl_right_window: ""
         property string fl_center_window:  ""
-        property int fl_len: 5;
+        property int fl_len: width / font.pixelSize;
 
         onAccepted:
         {
@@ -87,6 +87,7 @@ Rectangle
                         console.log("center:", input_area.fl_center_window);
                         console.log("right:", input_area.fl_right_window);
                     }
+                    input_area.cursorPosition = 0;
                 }
             }
 
