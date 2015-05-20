@@ -4,5 +4,7 @@
         <file>StartView.qml</file>
         <file>SButton.qml</file>
         <file>DestView.qml</file>
+        <file>ConfigureView.qml</file>
+        <file>TextInputField.qml</file>
     </qresource>
 </RCC>
