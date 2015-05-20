@@ -5,8 +5,9 @@ Rectangle {
     id: configureview
     state: "access: insert password"
 
-    Rectangle {
-        id: access_view
+    Rectangle
+    {
+        id: access_view_insert_password
         anchors.fill: parent
         color: parent.color
 
@@ -45,16 +46,76 @@ Rectangle {
             onReturnPressed:
             {
                 dctp_iface.password = text;
+                configureview.state = "access: verify password";
             }
         }
 
     }
 
+    Rectangle
+    {
+        id: access_view_verify_password
+        anchors.fill: parent
+        color: parent.color
+
+        Rectangle
+        {
+            anchors.centerIn: parent
+            color: parent.color
+            width: (parent.width - parent.width/5)
+            height: (parent.height / 10)
+
+            Text {
+                id: access_view_verify_password_text
+                anchors.centerIn: parent
+                color: "yellow";
+                text: "Try access";
+            }
+        }
+    }
+
     states: [
         State {
             name: "access: insert password"
-            PropertyChanges { target: access_view; visible: true; }
+            PropertyChanges { target: access_view_insert_password; visible: true; }
+            PropertyChanges { target: access_view_verify_password; visible: false; }
+        },
+        State {
+            name: "access: verify password"
+            PropertyChanges { target: access_view_insert_password; visible: false; }
+            PropertyChanges { target: access_view_verify_password; visible: true; }
+            StateChangeScript {
+                script:
+                {
+                    dctp_iface.doInThread("tryAccess");
+                    //loop_loading.running = true;
+                }
+            }
+        },
+        State {
+            name: "access: verify end"
+            when: dctp_iface.access_status != 0
+            PropertyChanges { target: access_view_insert_password; visible: false; }
+            PropertyChanges { target: access_view_verify_password; visible: true;  }
+            StateChangeScript {
+                script:
+                {
+                    if (dctp_iface.access_status == 1)
+                    {
+                        access_view_verify_password_text.text = "ACCESS GRANTED";
+                        access_view_verify_password_text.color = "lime";
+                        access_view_verify_password_text.font.bold = true;
+                    }
+                    if (dctp_iface.access_status == -1)
+                    {
+                        access_view_verify_password_text.text = "ACCESS DENIED";
+                        access_view_verify_password_text.color = "red";
+                        access_view_verify_password_text.font.bold = true;
+                    }
+                }
+            }
         }
+
     ]
 
 

@@ -16,11 +16,14 @@ Window
     {
         id: dctp_iface
         property string conn_status: "";
+        property int access_status: 0;
 
         module: "server";
         module_ip: "127.0.0.1";
         onConnectSuccess: conn_status = "Successfuly connected"
         onConnectFail: conn_status = "Connection failed"
+        onAccessGranted: { console.log("AG"); access_status = 1;}
+        onAccessDenied: { console.log("AD"); access_status = -1; }
     }
 
     //graphic container

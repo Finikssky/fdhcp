@@ -52,39 +52,6 @@ void DCTPinterface::setPassword(QString in)
 
 void DCTPinterface::tryConnect()
 {
-    /*
-    class ThTask : public QRunnable
-    {
-        public:
-
-        DCTPinterface *context;
-
-        void run()
-        {
-             qDebug() << "Hello world from thread" << QThread::currentThread();
-             DCTP_COMMAND command;
-             memset(&command, 0, sizeof(DCTP_COMMAND));
-
-             strncpy(command.name, "dctp_ping", sizeof(command.name));
-             qDebug() << QString(command.name);
-
-             int rc = send_DCTP_COMMAND(context->socket, command, context->_module_ip.toUtf8().data(), context->_module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT);
-
-             if (rc != -1)
-                 emit context->connectSuccess();
-             else
-                 emit context->connectFail();
-        }
-    };
-
-    ThTask * task = new ThTask;
-    int rc = 0;
-    task->context = this;
-    QThreadPool::globalInstance()->start(task);
-
-    qDebug() << "rc = " << rc;
-    return rc;*/
-
     qDebug() << "Hello world from thread" << QThread::currentThread();
     DCTP_COMMAND command;
     memset(&command, 0, sizeof(DCTP_COMMAND));
@@ -102,15 +69,7 @@ void DCTPinterface::tryConnect()
         emit this->connectFail();
 }
 
-void DCTPinterface::doInThread(QString fname)
-{
-     DCTPinterface::SingleTask * task;
-
-     //if (fname == "tryConnect") task = new DCTPinterface::SingleTask(this, );
-     QThreadPool::globalInstance()->start(task);
-}
-
-int DCTPinterface::tryAccess()
+void DCTPinterface::tryAccess()
 {
     DCTP_COMMAND command;
     memset(&command, 0, sizeof(DCTP_COMMAND));
@@ -122,6 +81,23 @@ int DCTPinterface::tryAccess()
     qDebug() << QString(command.arg);
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT);
-    return rc;
+
+    if (rc != -1)
+        emit this->accessGranted();
+    else
+        emit this->accessDenied();
+
 }
+
+void DCTPinterface::doInThread(QString fname)
+{
+    SingleTask * task;
+    if (fname == "tryConnect") task = new SingleTask(this, &DCTPinterface::tryConnect);
+    else if (fname == "tryAccess") task = new SingleTask(this, &DCTPinterface::tryAccess);
+    else return;
+
+    QThreadPool::globalInstance()->start(task);
+}
+
+
 

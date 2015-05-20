@@ -17,13 +17,6 @@ class DCTPinterface : public QObject
 
 public:
     typedef void (DCTPinterface::*DCTPinterfaceFunction) (void);
-    typedef struct { QString fname; DCTPinterfaceFunction fun; } built_t;
-
-private:
-    static built_t threadable_funcs[] =
-    {
-        { "tryConnect", &DCTPinterface::tryConnect }
-    };
 
 protected:
     class SingleTask : public QRunnable
@@ -37,7 +30,7 @@ protected:
                 context = CONTEXT;
             }
 
-        void run()
+        virtual void run()
         {
            qDebug() << "ha!";
            (context->*fun)();
@@ -54,6 +47,8 @@ signals:
     void passwordChanged();
     void connectSuccess();
     void connectFail();
+    void accessGranted();
+    void accessDenied();
 
 public slots:
     QString getModule();
@@ -66,7 +61,7 @@ public slots:
     void setPassword(QString);
 
     void tryConnect();
-    int tryAccess();
+    void tryAccess();
 
     void doInThread(QString);
 

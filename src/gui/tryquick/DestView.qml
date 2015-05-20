@@ -171,10 +171,27 @@ Rectangle
                 script:
                 {
                     dctp_iface.conn_status = "Connecting";
-                    dctp_iface.doInThread(dctp_iface.tryConnect());
+                    dctp_iface.doInThread("tryConnect");
                     loop_loading.running = true;
                 }
             }
+        },
+        State {
+                name: "connection fail"
+                PropertyChanges { target: try_connect;    visible: true;  }
+                PropertyChanges { target: choise_connect; visible: false; }
+                when: (dctp_iface.conn_status == "Connection failed" || dctp_iface.conn_status == "Successfuly connected") && destview.state == "connecting"
+                StateChangeScript {
+                    script:
+                    {
+                        loop_loading.running = false;
+                        if (dctp_iface.conn_status == "Connection failed")
+                            delay_timer.cn_status = false;
+                        else
+                            delay_timer.cn_status = true;
+                        delay_timer.running = true;
+                    }
+                }
         }
     ]
 
@@ -197,7 +214,7 @@ Rectangle
     Timer {
         property bool cn_status: false;
         id: delay_timer
-        interval: 500;
+        interval: 1000;
         running: false;
         repeat: false;
         onTriggered: cn_status == false ? destview.state = "choose" : mainwin_fsm.state = "CONFIGUREVIEW";
