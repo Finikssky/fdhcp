@@ -1079,32 +1079,26 @@ long get_one_num ( char * args )
 int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 {
 	printf( "<%s>\n", __FUNCTION__ );
-	char ifname[IFNAMELEN];
-
-	DCTP_cmd_code_t code = parse_DCTP_command( in, ifname );
-	if ( code == UNDEF_COMMAND ) return - 1;
 	int idx = - 1;
 
-	printf( "%s: %s\n", in->name, in->arg );
-
-	switch ( code )
+	switch ( in->code )
 	{
 		case SR_SET_IFACE_ENABLE:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			if ( server->interfaces[idx].enable == 1 ) return - 1;
 			if ( - 1 == enable_interface(&server->interfaces[idx]) ) return - 1;
 			break;
 
 		case SR_SET_IFACE_DISABLE:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			if ( server->interfaces[idx].enable == 0 ) return - 1;
 			if ( - 1 == disable_interface(&server->interfaces[idx]) ) return - 1;
 			break;
 
 		case SR_SET_LEASETIME:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1127,7 +1121,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_SET_HOST_NAME:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1138,7 +1132,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_SET_DOMAIN_NAME:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1149,19 +1143,19 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_ADD_SUBNET:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			if ( NULL == add_subnet_to_interface( &server->interfaces[idx], in->arg ) ) return - 1;
 			break;
 
 		case SR_DEL_SUBNET:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			if ( - 1 == del_subnet_from_interface( &server->interfaces[idx], in->arg ) ) return - 1;
 			break;
 
 		case SR_ADD_POOL:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name(in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1172,7 +1166,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_DEL_POOL:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1183,7 +1177,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_ADD_DNS:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1194,7 +1188,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_DEL_DNS:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1205,7 +1199,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_ADD_ROUTER:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1216,7 +1210,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			break;
 
 		case SR_DEL_ROUTER:
-			idx = get_iface_idx_by_name( ifname, server );
+			idx = get_iface_idx_by_name( in->interface, server );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
@@ -1230,12 +1224,15 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			return 0;
 
 		case DCTP_PASSWORD:
-			if ( - 1 == check_password( server, in->arg ) ) return - 1;
+			if ( - 1 == check_password( server, in->arg ) ) return - 1;			
 			break;
 
 		case DCTP_SAVE_CONFIG:
 			if ( - 1 == save_config( server, S_CONFIG_FILE ) ) return - 1;
 			break;
+
+		case DCTP_GET_CONFIG:
+			return 2;
 
 		case DCTP_END_WORK:
 			return 1;
@@ -1262,10 +1259,16 @@ void * manipulate ( void * server )
 		receive_DCTP_command( sock, &pack, &sender ); //успевает ли отработать?
 		int exec_status = execute_DCTP_command( &pack.payload, caller );
 		if ( exec_status >= 0 )
-			send_DCTP_REPLY( sock, &pack, DCTP_SUCCESS, &sender );
+			send_DCTP_REPLY( sock, &pack.packet, DCTP_SUCCESS, &sender );
 		else
-			send_DCTP_REPLY( sock, &pack, DCTP_FAIL, &sender );
+			send_DCTP_REPLY( sock, &pack.packet, DCTP_FAIL, &sender );
 
+		if ( exec_status == 2)
+		{
+                        save_config(caller, S_CONFIG_FILE);
+			send_DCTP_CONFIG( sock, S_CONFIG_FILE, &sender);
+		}
+		
 		if ( exec_status == 1 )
 		{
 			pthread_exit( NULL );

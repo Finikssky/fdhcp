@@ -6,7 +6,7 @@
 #include <QDebug>
 //#include "dctp.h"
 
-
+#define TMP_CONFIG_FILE "tmp_config"
 
 class DCTPinterface : public QObject
 {
@@ -49,6 +49,8 @@ signals:
     void connectFail();
     void accessGranted();
     void accessDenied();
+    void configUpdateSuccess();
+    void configUpdateFail();
 
 public slots:
     QString getModule();
@@ -62,6 +64,7 @@ public slots:
 
     void tryConnect();
     void tryAccess();
+    void tryUpdateConfig();
 
     void doInThread(QString);
 

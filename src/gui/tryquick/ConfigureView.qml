@@ -105,6 +105,7 @@ Rectangle {
                         access_view_verify_password_text.text = "ACCESS GRANTED";
                         access_view_verify_password_text.color = "lime";
                         access_view_verify_password_text.font.bold = true;
+                        action_update_config.running = true;
                     }
                     if (dctp_iface.access_status == -1)
                     {
@@ -114,9 +115,27 @@ Rectangle {
                     }
                 }
             }
+        },
+        State {
+            name: "configure: update config start"
+            PropertyChanges { target: access_view_insert_password; visible: false; }
+            PropertyChanges { target: access_view_verify_password; visible: true;  }
+            StateChangeScript
+            {
+                script: dctp_iface.doInThread("tryUpdateConfig");
+            }
         }
 
     ]
+
+    Timer {
+        property bool cn_status: false;
+        id: action_update_config
+        interval: 400;
+        running: false;
+        repeat: false;
+        onTriggered: configureview.state = "configure: update config start";
+    }
 
 
 }

@@ -239,29 +239,26 @@ int check_password(DCLIENT * client, char * check)
 
 int execute_DCTP_command(DCTP_COMMAND * in, DCLIENT * client)
 {
-	char ifname[IFNAMELEN];
-	DCTP_cmd_code_t code = parse_DCTP_command(in, ifname);
-	if (code == UNDEF_COMMAND) return -1;
 	int idx = -1;
 	
-	switch (code)
+	switch (in->code)
 	{
 		case CL_SET_SERVER_ADDR:
-			idx = get_iface_idx_by_name(ifname, client);
+			idx = get_iface_idx_by_name(in->interface, client);
 			if ( idx == -1 ) return -1;
 			strcpy(client->interfaces[idx].settings.server_address, in->arg);
-			printf("set server address on interfase %s : %s\n", ifname, in->arg);
+			//printf("set server address on interfase %s : %s\n", ifname, in->arg);
 			break;
 			
 		case CL_SET_IFACE_ENABLE:
-			idx = get_iface_idx_by_name(ifname, client);
+			idx = get_iface_idx_by_name(in->interface, client);
 			if ( idx == -1 ) return -1;
 			if ( client->interfaces[idx].enable == 1) return -1;
 			if ( -1 == enable_interface(&client->interfaces[idx], idx) ) return -1;
 			break;
 			
 		case CL_SET_IFACE_DISABLE:
-			idx = get_iface_idx_by_name(ifname, client);
+			idx = get_iface_idx_by_name(in->interface, client);
 			if ( idx == -1 ) return -1;
 			if ( client->interfaces[idx].enable == 0) return -1;
 			if ( -1 == disable_interface(&client->interfaces[idx], idx) ) return -1;
@@ -404,9 +401,9 @@ void * manipulate( void * client )
 		
 		receive_DCTP_command(sock, &pack, &sender);
 		if (execute_DCTP_command(&pack.payload, (DCLIENT*)client) == 0)
-			send_DCTP_REPLY(sock, &pack, DCTP_SUCCESS, &sender);
+			send_DCTP_REPLY(sock, &pack.packet, DCTP_SUCCESS, &sender);
 		else
-			send_DCTP_REPLY(sock, &pack, DCTP_FAIL, &sender);
+			send_DCTP_REPLY(sock, &pack.packet, DCTP_FAIL, &sender);
 	}
 	
 	release_DCTP_socket(sock);
