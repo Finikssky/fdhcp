@@ -400,10 +400,11 @@ void * manipulate( void * client )
 		struct sockaddr_in sender;
 		
 		receive_DCTP_command(sock, &pack, &sender);
+                char error_string[DCTP_ERROR_DESC_SIZE] = "";
 		if (execute_DCTP_command(&pack.payload, (DCLIENT*)client) == 0)
-			send_DCTP_REPLY(sock, &pack.packet, DCTP_SUCCESS, &sender);
+                        send_DCTP_REPLY(sock, &pack.packet, DCTP_SUCCESS, &sender, error_string);
 		else
-			send_DCTP_REPLY(sock, &pack.packet, DCTP_FAIL, &sender);
+                        send_DCTP_REPLY(sock, &pack.packet, DCTP_FAIL, &sender, error_string);
 	}
 	
 	release_DCTP_socket(sock);

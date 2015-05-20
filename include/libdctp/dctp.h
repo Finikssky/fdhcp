@@ -22,6 +22,7 @@ extern "C" {
 #define DCL_DCTP_PORT 39969
 #define DSR_DCTP_PORT 39970
 #define DCTP_LABEL 42
+#define DCTP_ERROR_DESC_SIZE 512
 
 typedef enum {
 	UNDEF_COMMAND,
@@ -120,7 +121,7 @@ typedef struct
 typedef struct 
 {
     DCTP_STATUS status;
-    char error[512];
+    char error[DCTP_ERROR_DESC_SIZE];
 } DCTP_REPLY;
 typedef struct
 {
@@ -151,7 +152,7 @@ typedef struct
 
 int receive_DCTP_command(int sock, DCTP_COMMAND_PACKET * pack, struct sockaddr_in * sender);
 int send_DCTP_COMMAND(int sock, DCTP_COMMAND command, char * ip, int port);
-void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sockaddr_in * sender);
+void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sockaddr_in * sender, char * error_string);
 int receive_DCTP_reply(int sock, DCTP_REPLY_PACKET * pack);
 
 int send_DCTP_CONFIG( int sock, const char * filename, struct sockaddr_in * sender);

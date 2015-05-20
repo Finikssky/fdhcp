@@ -35,17 +35,17 @@ void * s_recvDHCP ( void * arg );
 void * s_replyDHCP ( void * arg );
 void * sm ( void * arg );
 
-dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args );
+dserver_subnet_t * search_subnet (dserver_interface_t * interface, char * args , char *error);
 dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, char * args );
-int add_range_to_subnet ( dserver_subnet_t * subnet, char * range );
-int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address );
-int add_router_to_subnet ( dserver_subnet_t * subnet, char * address );
+int add_range_to_subnet (dserver_subnet_t * subnet, char * range , char * error);
+int add_dns_to_subnet (dserver_subnet_t * subnet, char * address , char *error);
+int add_router_to_subnet (dserver_subnet_t * subnet, char * address , char *error);
 int set_host_name_on_subnet ( dserver_subnet_t * subnet, char * args );
 int set_domain_name_on_subnet ( dserver_subnet_t * subnet, char * args );
 
 long get_one_num ( char * args );
 
-int get_iface_idx_by_name ( char * ifname, DSERVER * server );
+int get_iface_idx_by_name ( char * ifname, DSERVER * server, char * error);
 
 int init_interface_settings ( dserver_if_settings_t * settings )
 {
@@ -64,7 +64,7 @@ int init_interfaces ( DSERVER * server )
 
 	for ( i = 0, iter = ifa; iter != NULL && i < MAX_INTERFACES; i ++, iter = iter->ifa_next )
 	{
-		if ( - 1 != get_iface_idx_by_name( iter->ifa_name, server ) ) continue;
+                if ( - 1 != get_iface_idx_by_name( iter->ifa_name, server, NULL ) ) continue;
 		if ( ( iter->ifa_flags & IFF_POINTOPOINT ) == IFF_POINTOPOINT ) continue;
 		if ( ( iter->ifa_flags & IFF_LOOPBACK ) == IFF_LOOPBACK ) continue;
 
@@ -154,21 +154,21 @@ int load_subnet ( FILE * fd, dserver_subnet_t * subnet )
 		{
 			if ( EOF == t_gets( fd, 0, args, sizeof (args ), 0 ) )
 				return - 1;
-			if ( - 1 == add_range_to_subnet( subnet, args ) )
+                        if ( - 1 == add_range_to_subnet( subnet, args, NULL ) )
 				printf( "parse config error: add range\n" );
 		}
 		else if ( 0 == strcmp( com, "dns-server" ) )
 		{
 			if ( EOF == t_gets( fd, 0, args, sizeof (args ), 0 ) )
 				return - 1;
-			if ( - 1 == add_dns_to_subnet( subnet, args ) )
+                        if ( - 1 == add_dns_to_subnet( subnet, args, NULL ) )
 				printf( "parse config error: add dns-server\n" );
 		}
 		else if ( 0 == strcmp( com, "router" ) )
 		{
 			if ( EOF == t_gets( fd, 0, args, sizeof (args ), 0 ) )
 				return - 1;
-			if ( - 1 == add_router_to_subnet( subnet, args ) )
+                        if ( - 1 == add_router_to_subnet( subnet, args, NULL ) )
 				printf( "parse config error: add router\n" );
 		}
 		else if ( 0 == strcmp( com, "lease_time" ) )
@@ -534,21 +534,24 @@ int enable_interface (dserver_interface_t * interface)
 	if ( result != 0 )
 	{
 		perror( "Ошибка создания потока приема" );
-		pthread_exit( NULL );
+                pthread_cancel(interface->listen);
+                return -1;
 	}
 
 	result = pthread_create( &interface->fsm, NULL, s_fsmDHCP, ( void * ) interface ); //Создание потока контекстов
 	if ( result != 0 )
 	{
 		perror( "Ошибка создания потока FSM" );
-		pthread_exit( NULL );
+                pthread_cancel(interface->fsm);
+                return -1;
 	}
 
 	result = pthread_create( &interface->sender, NULL, s_replyDHCP, ( void * ) interface ); //Создание потока ответа
 	if ( result != 0 )
 	{
 		perror( "Ошибка создания потока ответа" );
-		pthread_exit( NULL );
+                pthread_cancel(interface->sender);
+                return -1;
 	}
 
 	printf( "IFACE %s ENABLED!\n", interface->name );
@@ -614,7 +617,7 @@ int disable_interface (dserver_interface_t * interface)
 	return 0;
 }
 
-void init_ptable ( int size ) //TODO release ptable
+void init_ptable ( int size )
 {
 	ptable_count = size;
 	ptable = realloc( ptable, size * sizeof (struct pass) );
@@ -718,19 +721,20 @@ int check_password ( DSERVER * server, char * check )
 	return 0;
 }
 
-int get_iface_idx_by_name ( char * ifname, DSERVER * server )
+int get_iface_idx_by_name ( char * ifname, DSERVER * server, char * error )
 {
 	int i;
 	for ( i = 0; i < MAX_INTERFACES; i ++ )
 		if ( 0 == strcmp( server->interfaces[i].name, ifname ) )
 			return i;
 
+        if (NULL != error) snprintf(error, DCTP_ERROR_DESC_SIZE, "Interface %s not found", ifname);
 	return - 1;
 }
 
-int del_subnet_from_interface ( dserver_interface_t * interface, char * args )
+int del_subnet_from_interface ( dserver_interface_t * interface, char * args, char * error )
 {
-	dserver_subnet_t * subnet = search_subnet( interface, args);
+        dserver_subnet_t * subnet = search_subnet( interface, args, error);
 
 	if ( subnet == NULL ) return - 1;
 	else
@@ -809,7 +813,7 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 	return (dserver_subnet_t *)push_queue(settings->subnets, 0, &subnet, sizeof(subnet));
 }
 
-dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args )
+dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args, char * error )
 {
 	dserver_if_settings_t * settings = & interface->settings;
 
@@ -818,7 +822,7 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args 
 
 	if ( strlen( args ) < ( 2 * 7 ) )
 	{
-		printf( "low args to search subnet:\n   args: %s\n   len: %d!\n", args, strlen( args ) );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Low args to search subnet:\n   args: %s\n   len: %d!\n", args, strlen( args ) );
 		return NULL;
 	}
 
@@ -826,7 +830,7 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args 
 	mask = strchr( args, ' ' );
 	if ( mask == NULL )
 	{
-		printf( "low args to search subnet, please add mask\n" );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Low args to search subnet, please add mask\n" );
 		return NULL;
 	}
 
@@ -843,12 +847,12 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args 
 	struct sockaddr_in a_sa, m_sa;
 	if ( ! inet_pton( AF_INET, address, &( a_sa.sin_addr ) ) )
 	{
-		printf( "can't parse address: %s\n", address );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Incorrect subnet address: %s\n", address );
 		return NULL;
 	}
 	if ( ! inet_pton( AF_INET, mask, &( m_sa.sin_addr ) ) )
 	{
-		printf( "can't parse mask: %s\n", mask );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Incorrect subnet mask: %s\n", mask );
 		return NULL;
 	}
 
@@ -870,11 +874,11 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args 
 		printip( subnet->address );
 	)
 
-	printf( "Subnet %s/%s not found!\n", address, mask );
+        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Subnet %s/%s not found!\n", address, mask );
 	return NULL;
 }
 
-int add_range_to_subnet ( dserver_subnet_t * subnet, char * range )
+int add_range_to_subnet ( dserver_subnet_t * subnet, char * range, char * error )
 {
 	ip_address_range_t a_range;
 
@@ -882,23 +886,23 @@ int add_range_to_subnet ( dserver_subnet_t * subnet, char * range )
 
 	if ( - 1 == ip_address_range_parse( range, &a_range ) )
 	{
-		printf( "wrong address-range\n" );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Incorrect address-range: %s\n", range );
 		return - 1;
 	}
 
 	if ( ( a_range.start_address & subnet->netmask ) != subnet->address ||
-	 ( a_range.end_address & subnet->netmask ) != subnet->address ||
-	 a_range.start_address == subnet->address ||
-	 a_range.end_address == subnet->address )
+             ( a_range.end_address & subnet->netmask ) != subnet->address ||
+               a_range.start_address == subnet->address ||
+               a_range.end_address == subnet->address )
 	{
-		printf( "address-range overlap subnet\n" );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Address-range %s overlaps with subnet\n", range );
 		return - 1;
 	}
 
 	Q_FOREACH(ip_address_range_t *, entry, subnet->pools,
 		if ( ip_address_range_is_overlap( entry, &a_range ) )
 		{
-			printf( "range %s exist!\n", range );
+                        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Address-range already %s exist\n", range );
 			return - 1;
 		}
 	)
@@ -911,7 +915,7 @@ int add_range_to_subnet ( dserver_subnet_t * subnet, char * range )
 	return 0;
 }
 
-int del_range_from_subnet ( dserver_subnet_t * subnet, char * range )
+int del_range_from_subnet ( dserver_subnet_t * subnet, char * range, char * error )
 {
 	ip_address_range_t a_range;
 
@@ -919,7 +923,7 @@ int del_range_from_subnet ( dserver_subnet_t * subnet, char * range )
 
 	if ( - 1 == ip_address_range_parse( range, &a_range ) )
 	{
-		printf( "wrong address-range\n" );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Incorrect address-range: %s\n", range );
 		return - 1;
 	}
 
@@ -935,11 +939,11 @@ int del_range_from_subnet ( dserver_subnet_t * subnet, char * range )
 		}
 	}
 
-	printf( "pool %s is not exist\n", range );
+        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Address-range %s is not exist\n", range );
 	return - 1;
 }
 
-int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address )
+int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address, char * error )
 {
 	if ( address == NULL ) return - 1;
 
@@ -949,7 +953,7 @@ int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address )
 	Q_FOREACH(int *, entry, subnet->dns_servers,
 		if ( ip == *entry )
 		{
-			printf( "dns-server is exist\n" );
+                        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "DNS-server is already exist\n" );
 			return -1;
 		}
 	)
@@ -960,7 +964,7 @@ int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address )
 	return 0;
 }
 
-int del_dns_from_subnet ( dserver_subnet_t * subnet, char * address )
+int del_dns_from_subnet ( dserver_subnet_t * subnet, char * address, char * error )
 {
 	if ( address == NULL ) return - 1;
 
@@ -976,12 +980,12 @@ int del_dns_from_subnet ( dserver_subnet_t * subnet, char * address )
 		}
 	)
 
-	printf( "dns-server %s is not exist\n", address );
+        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "DNS-server %s is not exist\n", address );
 
 	return - 1;
 }
 
-int add_router_to_subnet ( dserver_subnet_t * subnet, char * address )
+int add_router_to_subnet ( dserver_subnet_t * subnet, char * address, char * error )
 {
 	if ( address == NULL ) return - 1;
 
@@ -990,14 +994,14 @@ int add_router_to_subnet ( dserver_subnet_t * subnet, char * address )
 
 	if ( ( ip & subnet->netmask ) != subnet->address )
 	{
-		printf( "router is not in subnet!\n" );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Router address is not belong to subnet\n" );
 		return - 1;
 	}
 
 	Q_FOREACH(int *, entry, subnet->routers,
 		if ( ip == *entry )
 		{
-			printf( "router is exist\n" );
+                        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Router is already exist\n" );
 			return -1;
 		}
 	)
@@ -1008,7 +1012,7 @@ int add_router_to_subnet ( dserver_subnet_t * subnet, char * address )
 	return 0;
 }
 
-int del_router_from_subnet ( dserver_subnet_t * subnet, char * address )
+int del_router_from_subnet ( dserver_subnet_t * subnet, char * address, char * error )
 {
 	if ( address == NULL ) return - 1;
 
@@ -1024,7 +1028,7 @@ int del_router_from_subnet ( dserver_subnet_t * subnet, char * address )
 		}
 	)
 
-	printf( "router-server %s is not exist\n", address );
+        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Router %s is not exist\n", address );
 
 	return - 1;
 }
@@ -1076,7 +1080,7 @@ long get_one_num ( char * args )
 	return ret;
 }
 
-int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
+int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server, char * error)
 {
 	printf( "<%s>\n", __FUNCTION__ );
 	int idx = - 1;
@@ -1084,22 +1088,22 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 	switch ( in->code )
 	{
 		case SR_SET_IFACE_ENABLE:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return -1;
 			if ( server->interfaces[idx].enable == 1 ) return - 1;
 			if ( - 1 == enable_interface(&server->interfaces[idx]) ) return - 1;
 			break;
 
 		case SR_SET_IFACE_DISABLE:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return - 1;
 			if ( server->interfaces[idx].enable == 0 ) return - 1;
 			if ( - 1 == disable_interface(&server->interfaces[idx]) ) return - 1;
 			break;
 
 		case SR_SET_LEASETIME:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return - 1;
 			else
 			{
 				long ltime;
@@ -1111,112 +1115,112 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 				}
 				else
 				{
-					dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                        dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 					if ( NULL == sub ) return - 1;
 					ltime = get_one_num( in->arg );
 					if ( ltime == - 1 ) return - 1;
 					sub->lease_time = ltime;
 				}
-			}
+                        }
 			break;
 
 		case SR_SET_HOST_NAME:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
 				if ( - 1 == set_host_name_on_subnet( sub, in->arg ) ) return - 1;
 			}
 			break;
 
 		case SR_SET_DOMAIN_NAME:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
 				if ( - 1 == set_domain_name_on_subnet( sub, in->arg ) ) return - 1;
 			}
 			break;
 
 		case SR_ADD_SUBNET:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return - 1;
 			if ( NULL == add_subnet_to_interface( &server->interfaces[idx], in->arg ) ) return - 1;
 			break;
 
 		case SR_DEL_SUBNET:
-			idx = get_iface_idx_by_name( in->interface, server );
-			if ( idx == - 1 ) return - 1;
-			if ( - 1 == del_subnet_from_interface( &server->interfaces[idx], in->arg ) ) return - 1;
+                        idx = get_iface_idx_by_name( in->interface, server, error );
+                        if ( idx == - 1 ) return - 1;
+                        if ( - 1 == del_subnet_from_interface( &server->interfaces[idx], in->arg, error ) ) return - 1;
 			break;
 
 		case SR_ADD_POOL:
-			idx = get_iface_idx_by_name(in->interface, server );
+                        idx = get_iface_idx_by_name(in->interface, server, error );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
-				if ( - 1 == add_range_to_subnet( sub, in->arg ) ) return - 1;
+                                if ( - 1 == add_range_to_subnet( sub, in->arg, error ) ) return - 1;
 			}
 			break;
 
 		case SR_DEL_POOL:
-			idx = get_iface_idx_by_name( in->interface, server );
+                        idx = get_iface_idx_by_name( in->interface, server, error );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
-				if ( - 1 == del_range_from_subnet( sub, in->arg ) ) return - 1;
+                                if ( - 1 == del_range_from_subnet( sub, in->arg, error ) ) return - 1;
 			}
 			break;
 
 		case SR_ADD_DNS:
-			idx = get_iface_idx_by_name( in->interface, server );
+                        idx = get_iface_idx_by_name( in->interface, server, error );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
-				if ( - 1 == add_dns_to_subnet( sub, in->arg ) ) return - 1;
+                                if ( - 1 == add_dns_to_subnet( sub, in->arg, error ) ) return - 1;
 			}
 			break;
 
 		case SR_DEL_DNS:
-			idx = get_iface_idx_by_name( in->interface, server );
+                        idx = get_iface_idx_by_name( in->interface, server, error );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
-				if ( - 1 == del_dns_from_subnet( sub, in->arg ) ) return - 1;
+                                if ( - 1 == del_dns_from_subnet( sub, in->arg, error ) ) return - 1;
 			}
 			break;
 
 		case SR_ADD_ROUTER:
-			idx = get_iface_idx_by_name( in->interface, server );
+                        idx = get_iface_idx_by_name( in->interface, server, error );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
-				if ( - 1 == add_router_to_subnet( sub, in->arg ) ) return - 1;
+                                if ( - 1 == add_router_to_subnet( sub, in->arg, error ) ) return - 1;
 			}
 			break;
 
 		case SR_DEL_ROUTER:
-			idx = get_iface_idx_by_name( in->interface, server );
+                        idx = get_iface_idx_by_name( in->interface, server, error );
 			if ( idx == - 1 ) return - 1;
 			else
 			{
-				dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg );
+                                dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
 				if ( NULL == sub ) return - 1;
-				if ( - 1 == del_router_from_subnet( sub, in->arg ) ) return - 1;
+                                if ( - 1 == del_router_from_subnet( sub, in->arg, error ) ) return - 1;
 			}
 			break;
 
@@ -1224,11 +1228,19 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			return 0;
 
 		case DCTP_PASSWORD:
-			if ( - 1 == check_password( server, in->arg ) ) return - 1;			
+                        if ( - 1 == check_password( server, in->arg ) )
+                        {
+                            if (NULL != error) snprintf(error, DCTP_ERROR_DESC_SIZE, "Password incorrect");
+                            return - 1;
+                        }
 			break;
 
 		case DCTP_SAVE_CONFIG:
-			if ( - 1 == save_config( server, S_CONFIG_FILE ) ) return - 1;
+                        if ( - 1 == save_config( server, S_CONFIG_FILE ) )
+                        {
+                            if (NULL != error) snprintf(error, DCTP_ERROR_DESC_SIZE, "Configure save failed");
+                            return - 1;
+                        }
 			break;
 
 		case DCTP_GET_CONFIG:
@@ -1238,7 +1250,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server )
 			return 1;
 
 		default:
-			printf( "Unknown command!\n" );
+                        if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Unknown command type!\n" );
 			return - 1;
 	}
 
@@ -1257,11 +1269,13 @@ void * manipulate ( void * server )
 		struct sockaddr_in sender;
 
 		receive_DCTP_command( sock, &pack, &sender ); //успевает ли отработать?
-		int exec_status = execute_DCTP_command( &pack.payload, caller );
+
+                char error_string[DCTP_ERROR_DESC_SIZE] = "";
+                int exec_status = execute_DCTP_command( &pack.payload, caller, error_string );
 		if ( exec_status >= 0 )
-			send_DCTP_REPLY( sock, &pack.packet, DCTP_SUCCESS, &sender );
+                        send_DCTP_REPLY( sock, &pack.packet, DCTP_SUCCESS, &sender, NULL );
 		else
-			send_DCTP_REPLY( sock, &pack.packet, DCTP_FAIL, &sender );
+                        send_DCTP_REPLY( sock, &pack.packet, DCTP_FAIL, &sender, error_string );
 
 		if ( exec_status == 2)
 		{

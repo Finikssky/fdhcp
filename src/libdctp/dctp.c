@@ -184,8 +184,7 @@ int receive_DCTP_command(int sock, DCTP_COMMAND_PACKET * pack, struct sockaddr_i
 		{  
 			if (pack->packet.csum != create_csum((u_int8_t*)&pack->payload, sizeof(pack->payload)))
 			{
-				printf("Error in control sum!\n");
-				send_DCTP_REPLY(sock, pack, DCTP_REPEAT, sender);
+                                send_DCTP_REPLY(sock, pack, DCTP_REPEAT, sender, "Error in control sum!");
 				continue;
 			}
 				
@@ -225,12 +224,15 @@ int receive_DCTP_reply(int sock, DCTP_REPLY_PACKET * pack)
 
 }
 
-void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sockaddr_in * sender)
+void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sockaddr_in * sender, char * error_string)
 {
 	DCTP_REPLY_PACKET pack;
 	memset(&pack, 0, sizeof(pack));
 	
 	pack.payload.status = status;
+        if( error_string != NULL)
+            strncpy(pack.payload.error, error_string, sizeof(pack.payload.error));
+
         init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_RPL, (u_int8_t *)&pack.payload, sizeof(pack.payload.status) + strlen(pack.payload.error));
 	pack.packet.id = in->id;
 	
@@ -335,13 +337,12 @@ int receive_DCTP_CONFIG(int sock, char * filename)
 		{  
 			if (pack.packet.csum != create_csum((u_int8_t*)&pack.payload, sizeof(pack.payload)))
 			{
-				printf("Error in control sum!\n");
-				send_DCTP_REPLY(sock, &pack.packet, DCTP_REPEAT, &sender);
+                                send_DCTP_REPLY(sock, &pack.packet, DCTP_REPEAT, &sender, "Error in control sum!");
 				continue;
 			}
                         write_stream(pack.payload.block, pack.payload.block_size, f);
 			
-			send_DCTP_REPLY(sock, &pack.packet, DCTP_SUCCESS, &sender);
+                        send_DCTP_REPLY(sock, &pack.packet, DCTP_SUCCESS, &sender, NULL);
 			if (pack.payload.block_type == DCTP_FILE_END)
 			{
 				fclose(f);
