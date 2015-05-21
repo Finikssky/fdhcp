@@ -1,5 +1,4 @@
 #include "dctpinterface.h"
-#include "libdctp/dctp.h"
 
 #include <QDebug>
 #include <QThreadPool>
@@ -51,16 +50,20 @@ void DCTPinterface::setPassword(QString in)
     qDebug() << "set password = " + in;
 }
 
+QString DCTPinterface::getLastError()
+{
+    return QString(_last_error);
+}
+
 void DCTPinterface::tryConnect()
 {
-    qDebug() << "Hello world from thread" << QThread::currentThread();
     DCTP_COMMAND command;
     memset(&command, 0, sizeof(DCTP_COMMAND));
 
     command.code = DCTP_PING;
     qDebug() << QString(command.code);
 
-    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT);
+    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 
     qDebug() << "rc = " << rc;
 
@@ -81,7 +84,7 @@ void DCTPinterface::tryUpdateConfig()
     qDebug() << QString(command.code);
     qDebug() << QString(command.arg);
 
-    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT);
+    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
     qDebug() << "updconf command reply " << rc;
     if (rc == -1) return;
 
@@ -105,7 +108,7 @@ void DCTPinterface::tryAccess()
     qDebug() << QString(command.code);
     qDebug() << QString(command.arg);
 
-    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT);
+    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 
     if (rc != -1)
         emit this->accessGranted();

@@ -30,74 +30,14 @@ int recv_timeout_DCTP(int sock, void * buf, int timeout, struct sockaddr * sende
 
 int create_csum(u_int8_t * buffer, size_t size)
 {
+        int i;
+        int sum;
+        for (i = 0; i < size; i++ )
+        {
+            sum += buffer[i];
+            if (sum & 1) sum = sum >> 1;
+        }
 	return 42;
-}
-
-int calculate_DCTP_COMMAND_LEN(DCTP_COMMAND * command)
-{
-	int sum = sizeof(DCTP_COMMAND);
-	
-	printf("DCTP_COMMAND_SUM = %d\n", sum);
-	return sum;
-}
-
-int send_DCTP_PACK(int sock, void * buffer, size_t size, struct sockaddr_in * in, int port, char * ip)
-{
-	struct sockaddr_in dest;
-	if (in == NULL)
-	{
-		dest.sin_family      = AF_INET;
-		dest.sin_port        = htons(port);
-		dest.sin_addr.s_addr = inet_addr(ip);
-	}
-	else
-		memcpy(&dest, in, sizeof(struct sockaddr_in));	
-	
-	printf("SEND OPTIONS:\n %s\n %d\n %s\n", dest.sin_family == AF_INET ? "AF_INET" : "NONE", ntohs(dest.sin_port), inet_ntoa(dest.sin_addr) );
-		
-	sendto(sock, buffer, size, 0, (struct sockaddr*)&dest, sizeof(dest));
-	
-	return 0;
-}
-
-void init_DCTP_PACK(DCTP_PACKET * pack, u_int8_t type, u_int8_t * payload, size_t payload_size)
-{
-	static int id = 0;
-	
-	pack->label = DCTP_LABEL;
-	pack->type = type;
-	pack->csum = create_csum(payload, payload_size);
-        pack->id = id++;
-	pack->size = payload_size + sizeof(DCTP_PACKET);
-	
-	if (id > 1000000) id = 0;
-}
-
-int send_DCTP_COMMAND(int sock, DCTP_COMMAND command, char * ip, int port)
-{
-	DCTP_COMMAND_PACKET pack;
-	DCTP_REPLY_PACKET r_pack;
-	
-	int fail = 0;
-	
-	pack.payload = command;
-	while(1)
-	{
-                init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_COMM, (u_int8_t *)&pack.payload, sizeof(pack.payload) - sizeof(pack.payload.arg) + strlen(pack.payload.arg) * sizeof(char));
-		send_DCTP_PACK(sock, &pack, pack.packet.size, NULL, port, ip);
-	
-		if (-1 == receive_DCTP_reply(sock, &r_pack)) return -1;
-		if (r_pack.payload.status == DCTP_SUCCESS)
-		{
-			return 0;
-		}
-		else
-		{
-			printf("send command error: %s fails: %d\n", "err_desc", ++fail);
-			usleep(100000);
-			if (fail > 3) return -1;
-		}
-	}
 }
 
 int init_DCTP_socket(int port)
@@ -128,6 +68,38 @@ int init_DCTP_socket(int port)
 int release_DCTP_socket(int sock)
 {
 	return close(sock);
+}
+
+void init_DCTP_PACK(DCTP_PACKET * pack, u_int8_t type, u_int8_t * payload, size_t payload_size)
+{
+        static int id = 0;
+
+        pack->label = DCTP_LABEL;
+        pack->type = type;
+        pack->csum = create_csum(payload, payload_size);
+        pack->id = id++;
+        pack->size = payload_size + sizeof(DCTP_PACKET);
+
+        if (id > 1000000) id = 0;
+}
+
+int send_DCTP_PACK(int sock, void * buffer, size_t size, struct sockaddr_in * in, int port, char * ip)
+{
+        struct sockaddr_in dest;
+        if (in == NULL)
+        {
+                dest.sin_family      = AF_INET;
+                dest.sin_port        = htons(port);
+                dest.sin_addr.s_addr = inet_addr(ip);
+        }
+        else
+                memcpy(&dest, in, sizeof(struct sockaddr_in));
+
+        printf("SEND OPTIONS:\n %s\n %d\n %s\n", dest.sin_family == AF_INET ? "AF_INET" : "NONE", ntohs(dest.sin_port), inet_ntoa(dest.sin_addr) );
+
+        sendto(sock, buffer, size, 0, (struct sockaddr*)&dest, sizeof(dest));
+
+        return 0;
 }
 
 int receive_DCTP_PACKET(int sock, void * buffer, struct sockaddr_in * sender, int timeout) 
@@ -174,17 +146,63 @@ int receive_DCTP_PACKET(int sock, void * buffer, struct sockaddr_in * sender, in
 	}
 }
 
+int send_DCTP_COMMAND(int sock, DCTP_COMMAND command, char * ip, int port, char * error_ret)
+{
+        DCTP_COMMAND_PACKET pack;
+        DCTP_REPLY_PACKET r_pack;
+        if (NULL != error_ret) memset(error_ret, 0, DCTP_ERROR_DESC_SIZE);
+
+        pack.payload = command;
+        int repeats = 0;
+        while(1)
+        {
+                init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_COMM, (u_int8_t *)&pack.payload, sizeof(pack.payload) - sizeof(pack.payload.arg) + strlen(pack.payload.arg) * sizeof(char));
+                send_DCTP_PACK(sock, &pack, pack.packet.size, NULL, port, ip);
+
+                int bytes = 0;
+                while(1)
+                {
+                    bytes = receive_DCTP_reply(sock, &r_pack);
+                    if (-1 == bytes) return -1;
+                    if (r_pack.packet.id == pack.packet.id) break;
+                }
+
+                if (r_pack.payload.status == DCTP_SUCCESS)
+                {
+                        return 0;
+                }
+
+                if (r_pack.payload.status == DCTP_REPEAT)
+                {
+                        repeats++;
+                        if (repeats > 3)
+                        {
+                            if (error_ret != NULL) snprintf(error_ret, DCTP_ERROR_DESC_SIZE, "%s", "Incorrect control sum of command");
+                            return -1;
+                        }
+                        continue;
+                }
+
+                if (r_pack.payload.status == DCTP_FAIL)
+                {
+                        int r_esize = bytes - sizeof(DCTP_PACKET) - sizeof(r_pack.payload.status);
+                        if (error_ret != NULL) memcpy(error_ret, r_pack.payload.error, r_esize);
+                        return -1;
+                }
+        }
+}
+
 int receive_DCTP_command(int sock, DCTP_COMMAND_PACKET * pack, struct sockaddr_in * sender) 
 {
 	
 	while(1)
 	{	
-		receive_DCTP_PACKET(sock, pack, sender, 0);
+                int bytes = receive_DCTP_PACKET(sock, pack, sender, 0);
 		if (pack->packet.type == DCTP_MSG_COMM)
 		{  
-			if (pack->packet.csum != create_csum((u_int8_t*)&pack->payload, sizeof(pack->payload)))
+                        if (pack->packet.csum != create_csum((u_int8_t*)&pack->payload, bytes - sizeof(DCTP_PACKET)))
 			{
-                                send_DCTP_REPLY(sock, pack, DCTP_REPEAT, sender, "Error in control sum!");
+                                send_DCTP_REPLY(sock, &pack->packet, DCTP_REPEAT, sender, "Error in control sum!");
 				continue;
 			}
 				
@@ -199,45 +217,39 @@ int receive_DCTP_command(int sock, DCTP_COMMAND_PACKET * pack, struct sockaddr_i
 
 }
 
+void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sockaddr_in * sender, char * error_string)
+{
+        DCTP_REPLY_PACKET pack;
+        memset(&pack, 0, sizeof(pack));
+
+        pack.payload.status = status;
+        if( error_string != NULL)
+            strncpy(pack.payload.error, error_string, sizeof(pack.payload.error));
+
+        init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_RPL, (u_int8_t *)&pack.payload, sizeof(pack.payload.status) + strlen(pack.payload.error));
+        pack.packet.id = in->id;
+
+        printf("send reply, status %d\n", status);
+        send_DCTP_PACK(sock, &pack, pack.packet.size, sender, 0, NULL);
+}
+
 int receive_DCTP_reply(int sock, DCTP_REPLY_PACKET * pack)
 {
-	int err_counter = 0;
 	struct sockaddr_in sender;
 
 	while(1)
 	{	
                 memset(pack, 0, sizeof(DCTP_REPLY_PACKET));
 		int bytes = receive_DCTP_PACKET(sock, pack, &sender, DCTP_REPLY_TIMEOUT);
-		if (bytes == -1) err_counter++;
-		if (err_counter == 3)
-		{
-			printf("sorry but network is down\n");
-			return -1;
-		}
+                if (bytes == -1) return -1;
 		
 		if (pack->packet.type == DCTP_MSG_RPL)
 		{  				
 			printf("and yes! das dctp reply!\n");
-			return 0;
+                        return bytes;
 		}
 	}
 
-}
-
-void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sockaddr_in * sender, char * error_string)
-{
-	DCTP_REPLY_PACKET pack;
-	memset(&pack, 0, sizeof(pack));
-	
-	pack.payload.status = status;
-        if( error_string != NULL)
-            strncpy(pack.payload.error, error_string, sizeof(pack.payload.error));
-
-        init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_RPL, (u_int8_t *)&pack.payload, sizeof(pack.payload.status) + strlen(pack.payload.error));
-	pack.packet.id = in->id;
-	
-	printf("send reply, status %d\n", status);
-	send_DCTP_PACK(sock, &pack, pack.packet.size, sender, 0, NULL);
 }
 
 int read_stream(char * buffer, int maxsize, FILE * stream)
@@ -276,8 +288,8 @@ int send_DCTP_CONFIG( int sock, const char * filename, struct sockaddr_in * send
 		DCTP_FILE_PACKET packet;
 		memset(packet.payload.block, 0, sizeof(packet.payload.block));
                 packet.payload.block_size = read_stream(packet.payload.block, sizeof(packet.payload.block), f);
-		int file_ended = feof(f);
-		
+		int file_ended = feof(f);         
+
 		if (first) 
 		{	
 			if (file_ended) packet.payload.block_type = DCTP_FILE_ONCE;
@@ -306,7 +318,8 @@ int send_DCTP_CONFIG( int sock, const char * filename, struct sockaddr_in * send
 		}
 		else
 		{
-			if (r_pack.payload.status == DCTP_FAIL) printf("<%s> block send fail: %s", __FUNCTION__, r_pack.payload.error);
+                        if (r_pack.payload.status == DCTP_SUCCESS) continue;
+                        else return -1;
 		}	
 		
 		if (file_ended) return 0;
@@ -325,7 +338,7 @@ int receive_DCTP_CONFIG(int sock, char * filename)
 	
 	while(1)
 	{	
-		int bytes = receive_DCTP_PACKET(sock, &pack, &sender, 2);
+                int bytes = receive_DCTP_PACKET(sock, &pack, &sender, DCTP_REPLY_TIMEOUT);
 		if (bytes == -1)
 		{
 			printf("connection lost");
