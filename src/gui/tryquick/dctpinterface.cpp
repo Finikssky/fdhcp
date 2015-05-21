@@ -4,6 +4,9 @@
 #include <QThreadPool>
 #include <QRunnable>
 #include <QObject>
+#include <QFile>
+#include <QQuickView>
+#include <QQmlContext>
 
 DCTPinterface::DCTPinterface(QObject *parent) : QObject(parent)
 {
@@ -126,6 +129,35 @@ void DCTPinterface::doInThread(QString fname)
     else return;
 
     QThreadPool::globalInstance()->start(task);
+}
+
+QStringList DCTPinterface::getIfacesList()
+{
+     QStringList ret;
+     ret.append("global");
+     QFile f(TMP_CONFIG_FILE);
+
+     if (f.exists())
+     {
+         if (!f.open(QIODevice::ReadOnly))
+         {
+             qDebug() << "Ошибка открытия для чтения";
+         }
+     }
+
+     while (!f.atEnd())
+     {
+          QString line = f.readLine(512);
+          if (line.contains("interface:"))
+          {
+                QString raw_iface_name = line.section(':', 1);
+                QString clear_iface_name = raw_iface_name.replace(" ","").replace("\n", "");
+                if (!ret.contains(clear_iface_name)) ret.append(clear_iface_name);
+          }
+
+     }
+
+     return ret;
 }
 
 

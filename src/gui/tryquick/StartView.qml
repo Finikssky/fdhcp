@@ -3,8 +3,7 @@ import QtQuick 2.0
 Rectangle
 {
     id: startview
-
-    Rectangle
+    TextField
     {
         id: choisetext
         width: (parent.width - parent.width/5)
@@ -14,12 +13,8 @@ Rectangle
         anchors.centerIn: parent
         anchors.verticalCenterOffset: -(parent.height / 5);
 
-        Text
-        {
-            color: "yellow"
-            text: "Выберите модуль для настройки"
-            anchors.centerIn: parent
-        }
+        textcolor: "yellow"
+        text: "Выберите модуль для настройки"
     }
 
     SButton

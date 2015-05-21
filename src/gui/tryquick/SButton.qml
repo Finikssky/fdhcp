@@ -1,6 +1,7 @@
 import QtQuick 2.0
 
-Rectangle {
+Rectangle
+{
     id: container
     property alias text: buttonText.text
     property alias textcolor: buttonText.color

@@ -12,7 +12,7 @@ Rectangle
         anchors.fill: parent
         color: parent.color
 
-        Rectangle
+        TextField
         {
             id: choisetext
             width: (parent.width - parent.width/5)
@@ -22,12 +22,8 @@ Rectangle
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -(parent.height / 5);
 
-            Text
-            {
-                color: "yellow"
-                text: "Выберите местонахождение модуля"
-                anchors.centerIn: parent
-            }
+            textcolor: "yellow"
+            text: "Выберите местонахождение модуля"
         }
 
         SButton
@@ -141,19 +137,16 @@ Rectangle
         anchors.fill: parent
         color: parent.color
 
-        Rectangle
+        TextField
         {
+            id: try_connect_text
             anchors.centerIn: parent
             color: parent.color
             width: (parent.width - parent.width/5)
             height: (parent.height / 10)
 
-            Text {
-                id: try_connect_text
-                anchors.centerIn: parent
-                color: "yellow";
-                text: dctp_iface.conn_status;
-            }
+            textcolor: "yellow";
+            text: dctp_iface.conn_status;
         }
     }
 

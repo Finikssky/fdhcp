@@ -68,6 +68,7 @@ public slots:
     void tryConnect();
     void tryAccess();
     void tryUpdateConfig();
+    QStringList getIfacesList();
 
     void doInThread(QString);
 

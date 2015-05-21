@@ -74,16 +74,50 @@ Rectangle {
         }
     }
 
+    Rectangle
+    {
+        id: configure_view_interfaces_list
+        anchors.fill: parent
+        color: parent.color
+
+        ListView
+        {
+            id: configure_view_interfaces_list_listview
+            anchors.fill: parent
+            orientation: ListView.Vertical
+            cacheBuffer: 2000
+            snapMode: ListView.SnapOneItem
+            highlightRangeMode: ListView.ApplyRange
+
+            delegate: InterfaceConfigBlock
+                      {
+                        height: (configure_view_interfaces_list.height / 10)
+                        width: configure_view_interfaces_list.width
+
+                        header.bkcolor: configure_view_interfaces_list.color;
+                        header.text: "Интерфейс " + modelData
+                        header.textcolor: "yellow"
+                        header.anchors.margins: 2
+
+                        border { color: red; width: 1 }
+                      }
+
+            model: configure_view_interfaces_list_model
+        }
+    }
+
     states: [
         State {
             name: "access: insert password"
             PropertyChanges { target: access_view_insert_password; visible: true; }
             PropertyChanges { target: access_view_verify_password; visible: false; }
+            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
         },
         State {
             name: "access: verify password"
             PropertyChanges { target: access_view_insert_password; visible: false; }
             PropertyChanges { target: access_view_verify_password; visible: true; }
+            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
             StateChangeScript {
                 script:
                 {
@@ -97,6 +131,7 @@ Rectangle {
             when: dctp_iface.access_status != 0
             PropertyChanges { target: access_view_insert_password; visible: false; }
             PropertyChanges { target: access_view_verify_password; visible: true;  }
+            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
             StateChangeScript {
                 script:
                 {
@@ -105,13 +140,16 @@ Rectangle {
                         access_view_verify_password_text.text = "ACCESS GRANTED";
                         access_view_verify_password_text.color = "lime";
                         access_view_verify_password_text.font.bold = true;
-                        action_update_config.running = true;
+                        action_change_state.nextstate = "configure: update config start";
+                        action_change_state.running = true;
                     }
                     if (dctp_iface.access_status == -1)
                     {
                         access_view_verify_password_text.text = "ACCESS DENIED";
                         access_view_verify_password_text.color = "red";
                         access_view_verify_password_text.font.bold = true;
+                        action_change_state.nextstate = "access: insert password";
+                        action_change_state.running = true;
                     }
                 }
             }
@@ -120,23 +158,43 @@ Rectangle {
             name: "configure: update config start"
             PropertyChanges { target: access_view_insert_password; visible: false; }
             PropertyChanges { target: access_view_verify_password; visible: true;  }
+            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
             StateChangeScript
             {
-                script: dctp_iface.doInThread("tryUpdateConfig");
+                script:
+                {
+                    dctp_iface.access_status = 0;
+                    dctp_iface.doInThread("tryUpdateConfig");
+                }
+            }
+        },
+        State {
+            name: "configure: start"
+            when: configureview.state == "configure: update config start" && dctp_iface.cfgupd_status == 1
+            PropertyChanges { target: access_view_insert_password; visible: false; }
+            PropertyChanges { target: access_view_verify_password; visible: false;  }
+            PropertyChanges { target: configure_view_interfaces_list; visible: true; }
+            StateChangeScript
+            {
+                script:
+                {
+                    dctp_iface.cfgupd_status = 0;
+                    dctp_iface.getIfacesList();
+                    //configure_view_interfaces_list_model.append()
+                }
             }
         }
 
     ]
 
     Timer {
-        property bool cn_status: false;
-        id: action_update_config
+        property string nextstate;
+        id: action_change_state
         interval: 400;
         running: false;
         repeat: false;
-        onTriggered: configureview.state = "configure: update config start";
+        onTriggered: configureview.state = nextstate;
     }
-
 
 }
 
