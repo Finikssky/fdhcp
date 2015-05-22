@@ -8,7 +8,6 @@ Window
 
     width: 480
     height: 720
-
     visible: true    
     //DCTP interface
     DCTP
@@ -17,11 +16,12 @@ Window
         property string conn_status: "";
         property int access_status: 0;
         property int cfgupd_status: 0;
+        signal yesus();
 
         module: "server";
         module_ip: "127.0.0.1";
-        onConnectSuccess: conn_status = "Successfuly connected"
-        onConnectFail: conn_status = "Connection failed"
+        onConnectSuccess: { conn_status = "Successfuly connected"; yesus(); }
+        onConnectFail: { conn_status = "Connection failed"; yesus(); }
         onAccessGranted: { console.log("AG"); access_status = 1;}
         onAccessDenied: { console.log("AD"); access_status = -1; }
         onConfigUpdateSuccess: { console.log("CUS"); cfgupd_status = 1;}

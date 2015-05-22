@@ -52,6 +52,7 @@ signals:
     void accessDenied();
     void configUpdateSuccess();
     void configUpdateFail();
+    void ifaceChangeStateFail(QString signal_arg1);
 
 public slots:
     QString getModule();
@@ -68,7 +69,10 @@ public slots:
     void tryConnect();
     void tryAccess();
     void tryUpdateConfig();
+    int tryChangeInterfaceState(QString, QString);
+
     QStringList getIfacesList();
+    QString getIfaceState(QString);
 
     void doInThread(QString);
 

@@ -503,6 +503,7 @@ void * s_fsmDHCP ( void * arg )
 			//printf("\n\ntime to change, scount= %d\n", interface->qsessions->elements);
 			clear_context( interface->qsessions, ( void * ) interface ); //Очищаем базу сессий
 			//printf("cleared sessions, new scount = %d\n", interface->qsessions->elements);
+                        if (0 == interface->cci) interface->cci = 5;
 			if ( ++ i % ( 60 / interface->cci ) == 0 )
 			{
 				clear_lease( NULL );
@@ -1082,7 +1083,7 @@ long get_one_num ( char * args )
 
 int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server, char * error)
 {
-	printf( "<%s>\n", __FUNCTION__ );
+        printf( "<%s> command: %s\n", __FUNCTION__, stringize_DCTP_COMMAND_CODE(in->code));
 	int idx = - 1;
 
 	switch ( in->code )
@@ -1090,15 +1091,15 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server, char * error)
 		case SR_SET_IFACE_ENABLE:
                         idx = get_iface_idx_by_name( in->interface, server, error );
                         if ( idx == - 1 ) return -1;
-			if ( server->interfaces[idx].enable == 1 ) return - 1;
-			if ( - 1 == enable_interface(&server->interfaces[idx]) ) return - 1;
+                        if ( server->interfaces[idx].enable == 1 ) return 0;
+                        if ( - 1 == enable_interface(&server->interfaces[idx]) ) return -1;
 			break;
 
 		case SR_SET_IFACE_DISABLE:
                         idx = get_iface_idx_by_name( in->interface, server, error );
                         if ( idx == - 1 ) return - 1;
-			if ( server->interfaces[idx].enable == 0 ) return - 1;
-			if ( - 1 == disable_interface(&server->interfaces[idx]) ) return - 1;
+                        if ( server->interfaces[idx].enable == 0 ) return 0;
+                        if ( - 1 == disable_interface(&server->interfaces[idx]) ) return -1;
 			break;
 
 		case SR_SET_LEASETIME:
@@ -1116,9 +1117,9 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server, char * error)
 				else
 				{
                                         dserver_subnet_t * sub = search_subnet( &server->interfaces[idx], in->arg, error );
-					if ( NULL == sub ) return - 1;
+                                        if ( NULL == sub ) return -1;
 					ltime = get_one_num( in->arg );
-					if ( ltime == - 1 ) return - 1;
+                                        if ( ltime == - 1 ) return -1;
 					sub->lease_time = ltime;
 				}
                         }

@@ -124,7 +124,7 @@ int receive_DCTP_CONFIG(int sock, char * filename);
 int init_DCTP_socket(int port);
 int release_DCTP_socket(int sock);
 
-DCTP_cmd_code_t parse_DCTP_command (DCTP_COMMAND * in, char * ifname );
+const char * stringize_DCTP_COMMAND_CODE(DCTP_cmd_code_t in);
 
 #ifdef __cplusplus
 }

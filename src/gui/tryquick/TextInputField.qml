@@ -23,7 +23,7 @@ Rectangle
         property string fl_left_window: ""
         property string fl_right_window: ""
         property string fl_center_window:  ""
-        property int fl_len: width / font.pixelSize;
+        property int fl_len: 1.25 * font.width/font.pixelSize
 
         onAccepted:
         {

@@ -4,6 +4,8 @@ Rectangle
 {
       id: interface_block
       property alias header: interface_block_header
+      property alias interface_state: switcher.switch_state;
+      property string name: ""
 
       TextField
       {
@@ -35,10 +37,35 @@ Rectangle
               anchors.left: parent.left
               anchors.leftMargin: parent.width/20
               anchors.verticalCenter: parent.verticalCenter
+              radius: height/2;
+              switch_radius: radius
 
-              onStateChanged: {
-                    //console.log("state ", state);
-                   // dctp_iface.doInThread();
+              onSwitchOn:
+              {
+                  switch_color = "lime";
+              }
+              onSwitchOff:
+              {
+                  switch_color = "red";
+              }
+
+              Connections
+              {
+                  target: dctp_iface
+                  onIfaceChangeStateFail:
+                  {
+                      console.log("arg =", signal_arg1);
+                      if (name == signal_arg1)
+                      {
+                          console.log("error:", dctp_iface.last_error);
+                          switcher.switchChange();
+                      }
+                  }
+              }
+
+              onSwitchClick:
+              {
+                  dctp_iface.tryChangeInterfaceState(name, switch_state);
               }
           }
       }

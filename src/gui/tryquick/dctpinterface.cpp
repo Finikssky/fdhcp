@@ -64,7 +64,7 @@ void DCTPinterface::tryConnect()
     memset(&command, 0, sizeof(DCTP_COMMAND));
 
     command.code = DCTP_PING;
-    qDebug() << QString(command.code);
+    qDebug() << QString(stringize_DCTP_COMMAND_CODE(command.code));
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 
@@ -84,7 +84,7 @@ void DCTPinterface::tryUpdateConfig()
 
     command.code = DCTP_GET_CONFIG;
 
-    qDebug() << QString(command.code);
+    qDebug() << QString(stringize_DCTP_COMMAND_CODE(command.code));
     qDebug() << QString(command.arg);
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
@@ -108,7 +108,7 @@ void DCTPinterface::tryAccess()
     command.code = DCTP_PASSWORD;
     strncpy(command.arg,  _password.toUtf8().data(), sizeof(command.arg));
 
-    qDebug() << QString(command.code);
+    qDebug() << QString(stringize_DCTP_COMMAND_CODE(command.code));
     qDebug() << QString(command.arg);
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
@@ -118,6 +118,38 @@ void DCTPinterface::tryAccess()
     else
         emit this->accessDenied();
 
+}
+
+int DCTPinterface::tryChangeInterfaceState(QString name, QString state)
+{
+    DCTP_COMMAND command;
+    memset(&command, 0, sizeof(DCTP_COMMAND));
+
+    if (_module == "server")
+    {
+        if (state == "on")
+            command.code = SR_SET_IFACE_ENABLE;
+        else
+            command.code = SR_SET_IFACE_DISABLE;
+    }
+    else
+    {
+        if (state == "on")
+            command.code = CL_SET_IFACE_ENABLE;
+        else
+            command.code = CL_SET_IFACE_DISABLE;
+    }
+
+    strncpy(command.interface, name.toUtf8(), sizeof(command.interface));
+
+    qDebug() << QString(stringize_DCTP_COMMAND_CODE(command.code));
+    qDebug() << QString(command.interface);
+
+    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
+
+    if (rc == -1) emit ifaceChangeStateFail(name);
+
+    return rc;
 }
 
 void DCTPinterface::doInThread(QString fname)
@@ -134,7 +166,6 @@ void DCTPinterface::doInThread(QString fname)
 QStringList DCTPinterface::getIfacesList()
 {
      QStringList ret;
-     ret.append("global");
      QFile f(TMP_CONFIG_FILE);
 
      if (f.exists())
@@ -158,6 +189,37 @@ QStringList DCTPinterface::getIfacesList()
      }
 
      return ret;
+}
+
+QString DCTPinterface::getIfaceState(QString name)
+{
+     QFile f(TMP_CONFIG_FILE);
+
+     if (f.exists())
+     {
+         if (!f.open(QIODevice::ReadOnly))
+         {
+             qDebug() << "Ошибка открытия для чтения";
+         }
+     }
+
+     while (!f.atEnd())
+     {
+          QString line = f.readLine(512);
+          if (line.contains("interface:") && line.contains(name))
+          {
+                while (1)
+                {
+                    QString iface_line = f.readLine(512);
+                    if (iface_line.contains("enable")) return "on";
+                    if (iface_line.contains("disable")) return "off";
+                    if (iface_line.contains("end_interface")) return "off";
+                }
+          }
+
+     }
+
+     return "off";
 }
 
 

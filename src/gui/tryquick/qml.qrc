@@ -9,5 +9,6 @@
         <file>InterfaceConfigBlock.qml</file>
         <file>TextField.qml</file>
         <file>SwitchSlider.qml</file>
+        <file>ScreenView.qml</file>
     </qresource>
 </RCC>

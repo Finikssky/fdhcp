@@ -93,16 +93,19 @@ Rectangle {
                       {
                         height: (configure_view_interfaces_list.height / 10)
                         width: configure_view_interfaces_list.width
+                        name: IfaceName
 
                         header.bkcolor: configure_view_interfaces_list.color;
-                        header.text: "Интерфейс " + modelData
+                        header.text: "Интерфейс " + name
                         header.textcolor: "yellow"
                         header.anchors.margins: 2
 
-                        border { color: red; width: 1 }
+                        border { color: "red"; width: 1 }
                       }
 
-            model: configure_view_interfaces_list_model
+            model: ListModel{
+                id: configure_view_interfaces_list_model
+            }
         }
     }
 
@@ -179,8 +182,13 @@ Rectangle {
                 script:
                 {
                     dctp_iface.cfgupd_status = 0;
-                    dctp_iface.getIfacesList();
-                    //configure_view_interfaces_list_model.append()
+                    var if_str_list = dctp_iface.getIfacesList();
+                    for (var i = 0; i < if_str_list.length; i++)
+                    {
+                        configure_view_interfaces_list_model.append({IfaceName: if_str_list[i]})
+                        configure_view_interfaces_list_listview.currentIndex = i;
+                        configure_view_interfaces_list_listview.currentItem.interface_state = dctp_iface.getIfaceState(configure_view_interfaces_list_listview.currentItem.name);
+                    }
                 }
             }
         }

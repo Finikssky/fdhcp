@@ -7,6 +7,28 @@
 #include <sys/select.h>
 #include <sys/time.h>
 
+const char * stringize_DCTP_COMMAND_CODE(DCTP_cmd_code_t in)
+{
+    switch (in)
+    {
+        case DCTP_PING:
+            return "ping";
+        case DCTP_UPDATE_CONFIG:
+            return "update config";
+        case DCTP_PASSWORD:
+            return "authorization";
+        case SR_SET_IFACE_ENABLE:
+        case CL_SET_IFACE_ENABLE:
+            return "iface enable";
+        case SR_SET_IFACE_DISABLE:
+        case CL_SET_IFACE_DISABLE:
+            return "iface disable";
+
+        default: break;
+    }
+
+    return "";
+}
 int recv_timeout_DCTP(int sock, void * buf, int timeout, struct sockaddr * sender, size_t * size)
 {
 	fd_set rdfs;
@@ -154,16 +176,20 @@ int send_DCTP_COMMAND(int sock, DCTP_COMMAND command, char * ip, int port, char 
 
         pack.payload = command;
         int repeats = 0;
-        while(1)
+        while (1)
         {
                 init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_COMM, (u_int8_t *)&pack.payload, sizeof(pack.payload) - sizeof(pack.payload.arg) + strlen(pack.payload.arg) * sizeof(char));
                 send_DCTP_PACK(sock, &pack, pack.packet.size, NULL, port, ip);
 
                 int bytes = 0;
-                while(1)
+                while (1)
                 {
                     bytes = receive_DCTP_reply(sock, &r_pack);
-                    if (-1 == bytes) return -1;
+                    if (-1 == bytes)
+                    {
+                        snprintf(error_ret, DCTP_ERROR_DESC_SIZE, "%s", "network is inaccessible");
+                        return -1;
+                    }
                     if (r_pack.packet.id == pack.packet.id) break;
                 }
 
