@@ -3,7 +3,10 @@ import QtQuick 2.0
 Rectangle
 {
     property alias error_text: _screenview_floor_errblock.text
-    property alias main_entry: _screenview_main.entry
+    property Component main_entry;
+    property alias main_view_block: _screenview_main
+    signal pressBack();
+    signal pressHome();
 
     id: _screenview
     anchors.fill: parent
@@ -12,32 +15,43 @@ Rectangle
     Rectangle
     {
         id: _screenview_main
-        height: parent.height * 7/8
+        height: parent.height * 9/10
         width: parent.width
         color: parent.color
 
         anchors.top: parent.top
 
-        property Rectangle entry;
+        property alias entry: _screenwiew_main_entry
+
+        Loader
+        {
+            id: _screenwiew_main_entry
+            anchors.fill: _screenview_main
+            sourceComponent: main_entry
+        }
+
+        //border: { color: "red"; width: 5;}
     }
 
     Rectangle
     {
         id: _screenview_floor
-        height: parent.height * 1/8
+        height: parent.height * 1/10
         width: parent.width
         color: parent.color
 
         anchors.bottom: parent.bottom
 
-        Rectangle
+        SButton
         {
             id: _screenview_floor_back
             height: parent.height
             width: parent.width / 5
+            color: parent.color
 
             anchors.left: parent.left
 
+            onButtonClick: pressBack();
         }
 
        TextField
@@ -55,13 +69,15 @@ Rectangle
            text: "Errors here"
         }
 
-        Rectangle
+        SButton
         {
             id: _screenview_floor_main
             height: parent.height
             width: parent.width / 5
-
+            color: parent.color
             anchors.right: parent.right
+
+            onButtonClick: pressHome()
         }
     }
 

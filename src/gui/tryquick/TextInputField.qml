@@ -8,6 +8,7 @@ Rectangle
     readonly property string text: (input_area.fl_left_window + input_area.fl_center_window + input_area.fl_right_window)
     property alias font: input_area.font
     signal returnPressed()
+    property alias maximumLength: input_area.maximumLength
 
     TextInput
     {
@@ -23,7 +24,7 @@ Rectangle
         property string fl_left_window: ""
         property string fl_right_window: ""
         property string fl_center_window:  ""
-        property int fl_len: 1.25 * font.width/font.pixelSize
+        property int fl_len: 1.5 * width/font.pixelSize
 
         onAccepted:
         {
@@ -41,7 +42,6 @@ Rectangle
 
             if (fl_len > text.length)
             {
-                console.log(2);
                 if (fl_left_window.length > 0)
                     fl_center_window = fl_left_window[fl_left_window.length - 1] + text;
                 else
@@ -57,9 +57,9 @@ Rectangle
                 text = fl_center_window;
             }
 
-            console.log("left:", fl_left_window);
-            console.log("center:", fl_center_window);
-            console.log("right:", fl_right_window);
+           // console.log("left:", fl_left_window);
+           // console.log("center:", fl_center_window);
+           // console.log("right:", fl_right_window);
         }
 
         onCursorPositionChanged:
@@ -74,7 +74,7 @@ Rectangle
             {
                 if (input_area.cursorPosition == 0)
                 {
-                    console.log("shift left");
+                    //console.log("shift left");
                     if (input_area.fl_left_window.length == 0) return;
                     else
                     {
@@ -83,9 +83,9 @@ Rectangle
                         input_area.fl_left_window = input_area.fl_left_window.substring(0, input_area.fl_left_window.length - 1);
                         input_area.text = input_area.fl_center_window;
 
-                        console.log("left:", input_area.fl_left_window);
-                        console.log("center:", input_area.fl_center_window);
-                        console.log("right:", input_area.fl_right_window);
+                      //  console.log("left:", input_area.fl_left_window);
+                      //  console.log("center:", input_area.fl_center_window);
+                      //  console.log("right:", input_area.fl_right_window);
                     }
                     input_area.cursorPosition = 0;
                 }
@@ -95,7 +95,7 @@ Rectangle
             {
                 if (input_area.cursorPosition == input_area.text.length)
                 {
-                    console.log("shift right");
+                    //console.log("shift right");
                     if (input_area.fl_right_window.length == 0) return;
                     else
                     {
@@ -104,9 +104,9 @@ Rectangle
                         input_area.fl_right_window = input_area.fl_right_window.substring(1, input_area.fl_right_window.length);
                         input_area.text = input_area.fl_center_window;
 
-                        console.log("left:", input_area.fl_left_window);
-                        console.log("center:", input_area.fl_center_window);
-                        console.log("right:", input_area.fl_right_window);
+                        //console.log("left:", input_area.fl_left_window);
+                        //console.log("center:", input_area.fl_center_window);
+                        //console.log("right:", input_area.fl_right_window);
                     }
                 }
             }

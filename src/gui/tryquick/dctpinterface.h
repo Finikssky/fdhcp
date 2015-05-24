@@ -50,8 +50,7 @@ signals:
     void connectFail();
     void accessGranted();
     void accessDenied();
-    void configUpdateSuccess();
-    void configUpdateFail();
+    void configUpdate(QString status);
     void ifaceChangeStateFail(QString signal_arg1);
 
 public slots:

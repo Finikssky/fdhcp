@@ -1,84 +1,167 @@
-import QtQuick 2.0
 import QtQuick 2.4
 
-Rectangle {
+ScreenView
+{
     id: configureview
     state: "access: insert password"
 
-    Rectangle
+    states: [
+        State {
+            name: "access: insert password"
+            PropertyChanges { target: configureview; main_entry: access_view_component }
+        },
+        State {
+            name: "access: verify password"
+            PropertyChanges { target: configureview; main_entry: access_view_try_access_component }
+        },
+        State {
+            name: "configure: update config start"
+            PropertyChanges { target: configureview; main_entry: config_view_try_udpcfg_component }
+        },
+        State {
+            name: "configure: start"
+            PropertyChanges { target: configureview; main_entry: config_view_main_component }
+        }
+
+    ]
+
+    Component
     {
-        id: access_view_insert_password
-        anchors.fill: parent
-        color: parent.color
+        id: access_view_component
 
         Rectangle
         {
-            id: access_view_text
-            width: (parent.width - parent.width/5)
-            height: (parent.height / 10)
-            color: parent.color
+            id: access_view_insert_password
+            anchors.fill: parent
+            color: configureview.color
 
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: -0.7 * (parent.height / 10);
-
-            Text
-            {   property string module_str: dctp_iface.module == "server" ? "серверу" : "клиенту"
-                id: access_view_text_entry
-                color: "yellow"
-                text: "Введите пароль для доступа к " + module_str;
-                anchors.centerIn: parent
-            }
-        }
-
-        TextInputField
-        {
-            id: access_view_input_field
-
-            width: (parent.width - parent.width/5)
-            height: (parent.height / 10)
-
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: 0.7 * (parent.height / 10);
-
-            bkcolor: "blue"
-            textcolor: "yellow"
-
-            onReturnPressed:
+            TextField
             {
-                dctp_iface.password = text;
-                configureview.state = "access: verify password";
+                id: access_view_text
+                width: (parent.width - parent.width/5)
+                height: (parent.height / 10)
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: -0.7 * (parent.height / 10);
+
+                color: parent.color
+                textcolor: "yellow"
+                text:
+                {
+                    if (dctp_iface.module == "server")
+                        return "Введите пароль для доступа к серверу"
+                    else
+                        return "Введите пароль для доступа к клиенту"
+                }
+            }
+
+            TextInputField
+            {
+                id: access_view_input_field
+
+                width: (parent.width - parent.width/5)
+                height: (parent.height / 10)
+
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: 0.7 * (parent.height / 10);
+
+                bkcolor: "blue"
+                textcolor: "yellow"
+
+                maximumLength: 20
+
+                onReturnPressed:
+                {
+                    dctp_iface.password = text;
+                    configureview.state = "access: verify password";
+                }
             }
         }
-
     }
 
-    Rectangle
+    Component
     {
-        id: access_view_verify_password
-        anchors.fill: parent
-        color: parent.color
+        id: access_view_try_access_component
 
-        Rectangle
+        TextField
         {
-            anchors.centerIn: parent
-            color: parent.color
+            anchors.centerIn: parent;
             width: (parent.width - parent.width/5)
             height: (parent.height / 10)
 
-            Text {
-                id: access_view_verify_password_text
-                anchors.centerIn: parent
-                color: "yellow";
-                text: "Try access";
+            color: configureview.color
+
+            textcolor: "yellow"
+            text: "Try access"
+
+            Connections
+            {
+                target: dctp_iface
+                onAccessGranted:
+                {
+                    text = "ACCESS GRANTED";
+                    textcolor = "lime";
+                    font.bold = true;
+                    action_change_state.nextstate = "configure: update config start"
+                    action_change_state.running = true;
+                }
+                onAccessDenied:
+                {
+                    text = "ACCESS DENIED";
+                    textcolor = "red";
+                    font.bold = true;
+                    action_change_state.nextstate = "access: insert password"
+                    action_change_state.running = true;
+                }
+            }
+
+            Connections
+            {
+                target: main_view_block.entry
+                onLoaded:
+                {
+                    dctp_iface.doInThread("tryAccess");
+                }
             }
         }
     }
 
-    Rectangle
+    Component
     {
-        id: configure_view_interfaces_list
-        anchors.fill: parent
-        color: parent.color
+        id: config_view_try_udpcfg_component
+        TextField
+        {
+            anchors.centerIn: parent
+            width: (parent.width - parent.width/5)
+            height: (parent.height / 10)
+            color: configureview.color
+
+            textcolor: "yellow"
+            text: "Идет обновление конфигурации"
+
+            Connections
+            {
+                target: dctp_iface
+                onConfigUpdate:
+                {
+                    console.log("cfgupdated")
+                    console.log(status);
+                    if (status == "success") text = "Конфигурация успешно загружена"
+                    if (status == "fail")    text = "Конфигурация не загружена"
+                    action_change_state.nextstate = "configure: start"
+                    action_change_state.running = true;
+                }
+            }
+            Connections
+            {
+                target: main_view_block.entry
+                onLoaded: dctp_iface.doInThread("tryUpdateConfig");
+            }
+        }
+    }
+
+    Component
+    {
+        id: config_view_main_component
 
         ListView
         {
@@ -91,11 +174,11 @@ Rectangle {
 
             delegate: InterfaceConfigBlock
                       {
-                        height: (configure_view_interfaces_list.height / 10)
-                        width: configure_view_interfaces_list.width
+                        height: (configure_view_interfaces_list_listview.height / 10)
+                        width: configure_view_interfaces_list_listview.width
                         name: IfaceName
 
-                        header.bkcolor: configure_view_interfaces_list.color;
+                        header.bkcolor: configureview.color;
                         header.text: "Интерфейс " + name
                         header.textcolor: "yellow"
                         header.anchors.margins: 2
@@ -103,85 +186,16 @@ Rectangle {
                         border { color: "red"; width: 1 }
                       }
 
-            model: ListModel{
-                id: configure_view_interfaces_list_model
-            }
-        }
-    }
+            model: ListModel
+                   {
+                        id: configure_view_interfaces_list_model
+                   }
 
-    states: [
-        State {
-            name: "access: insert password"
-            PropertyChanges { target: access_view_insert_password; visible: true; }
-            PropertyChanges { target: access_view_verify_password; visible: false; }
-            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
-        },
-        State {
-            name: "access: verify password"
-            PropertyChanges { target: access_view_insert_password; visible: false; }
-            PropertyChanges { target: access_view_verify_password; visible: true; }
-            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
-            StateChangeScript {
-                script:
-                {
-                    dctp_iface.doInThread("tryAccess");
-                    //loop_loading.running = true;
-                }
-            }
-        },
-        State {
-            name: "access: verify end"
-            when: dctp_iface.access_status != 0
-            PropertyChanges { target: access_view_insert_password; visible: false; }
-            PropertyChanges { target: access_view_verify_password; visible: true;  }
-            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
-            StateChangeScript {
-                script:
-                {
-                    if (dctp_iface.access_status == 1)
-                    {
-                        access_view_verify_password_text.text = "ACCESS GRANTED";
-                        access_view_verify_password_text.color = "lime";
-                        access_view_verify_password_text.font.bold = true;
-                        action_change_state.nextstate = "configure: update config start";
-                        action_change_state.running = true;
-                    }
-                    if (dctp_iface.access_status == -1)
-                    {
-                        access_view_verify_password_text.text = "ACCESS DENIED";
-                        access_view_verify_password_text.color = "red";
-                        access_view_verify_password_text.font.bold = true;
-                        action_change_state.nextstate = "access: insert password";
-                        action_change_state.running = true;
-                    }
-                }
-            }
-        },
-        State {
-            name: "configure: update config start"
-            PropertyChanges { target: access_view_insert_password; visible: false; }
-            PropertyChanges { target: access_view_verify_password; visible: true;  }
-            PropertyChanges { target: configure_view_interfaces_list; visible: false; }
-            StateChangeScript
+            Connections
             {
-                script:
+                target: main_view_block.entry
+                onLoaded:
                 {
-                    dctp_iface.access_status = 0;
-                    dctp_iface.doInThread("tryUpdateConfig");
-                }
-            }
-        },
-        State {
-            name: "configure: start"
-            when: configureview.state == "configure: update config start" && dctp_iface.cfgupd_status == 1
-            PropertyChanges { target: access_view_insert_password; visible: false; }
-            PropertyChanges { target: access_view_verify_password; visible: false;  }
-            PropertyChanges { target: configure_view_interfaces_list; visible: true; }
-            StateChangeScript
-            {
-                script:
-                {
-                    dctp_iface.cfgupd_status = 0;
                     var if_str_list = dctp_iface.getIfacesList();
                     for (var i = 0; i < if_str_list.length; i++)
                     {
@@ -192,10 +206,11 @@ Rectangle {
                 }
             }
         }
+    }
 
-    ]
 
-    Timer {
+    Timer
+    {
         property string nextstate;
         id: action_change_state
         interval: 400;
@@ -203,6 +218,4 @@ Rectangle {
         repeat: false;
         onTriggered: configureview.state = nextstate;
     }
-
 }
-

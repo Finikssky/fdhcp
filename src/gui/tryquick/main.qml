@@ -13,19 +13,8 @@ Window
     DCTP
     {
         id: dctp_iface
-        property string conn_status: "";
-        property int access_status: 0;
-        property int cfgupd_status: 0;
-        signal yesus();
-
         module: "server";
         module_ip: "127.0.0.1";
-        onConnectSuccess: { conn_status = "Successfuly connected"; yesus(); }
-        onConnectFail: { conn_status = "Connection failed"; yesus(); }
-        onAccessGranted: { console.log("AG"); access_status = 1;}
-        onAccessDenied: { console.log("AD"); access_status = -1; }
-        onConfigUpdateSuccess: { console.log("CUS"); cfgupd_status = 1;}
-        onConfigUpdateFail: { console.log("CUF"); cfgupd_status = -1; }
     }
 
     //graphic container
@@ -45,6 +34,8 @@ Window
             id: destview
             color: "black";
             anchors.fill: parent
+            onPressBack: mainwin_fsm.state = "STARTVIEW"
+            onPressHome: mainwin_fsm.state = "STARTVIEW"
         }
 
         ConfigureView
@@ -52,6 +43,9 @@ Window
             id: configureview
             color: "black";
             anchors.fill: parent
+
+            onPressBack: mainwin_fsm.state = "DESTVIEW"
+            onPressHome: mainwin_fsm.state = "STARTVIEW"
         }
 
 
@@ -73,14 +67,15 @@ Window
               PropertyChanges { target: destview;  visible: true;  }
               PropertyChanges { target: startview; visible: false; }
               PropertyChanges { target: configureview;  visible: false; }
+              PropertyChanges { target: destview;  state: "choose"; }
             },
             State {
               name: "CONFIGUREVIEW"
               PropertyChanges { target: configureview;  visible: true; }
               PropertyChanges { target: destview;  visible: false;  }
               PropertyChanges { target: startview; visible: false; }
+              PropertyChanges { target: configureview;  state: "access: insert password"; }
             }
           ]
     }
-
 }

@@ -78,7 +78,6 @@ void DCTPinterface::tryConnect()
 
 void DCTPinterface::tryUpdateConfig()
 {
-    qDebug() << "update config";
     DCTP_COMMAND command;
     memset(&command, 0, sizeof(DCTP_COMMAND));
 
@@ -94,9 +93,9 @@ void DCTPinterface::tryUpdateConfig()
     rc = receive_DCTP_CONFIG(socket, TMP_CONFIG_FILE);
     qDebug() << "receive configuration status " << rc;
     if (rc != -1)
-        emit this->configUpdateSuccess();
+        emit this->configUpdate("success");
     else
-        emit this->configUpdateFail();
+        emit this->configUpdate("fail");
 
 }
 

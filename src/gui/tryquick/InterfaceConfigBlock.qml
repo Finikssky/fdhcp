@@ -54,7 +54,6 @@ Rectangle
                   target: dctp_iface
                   onIfaceChangeStateFail:
                   {
-                      console.log("arg =", signal_arg1);
                       if (name == signal_arg1)
                       {
                           console.log("error:", dctp_iface.last_error);
