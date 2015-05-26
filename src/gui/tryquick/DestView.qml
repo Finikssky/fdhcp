@@ -4,7 +4,7 @@ import dctpinterface 1.0
 ScreenView
 {
     id: destview
-    main_entry: choise_connect_block
+    state: "choose"
 
     states: [
         State {
@@ -190,8 +190,11 @@ ScreenView
                     target: main_view_block.entry
                     onLoaded:
                     {
-                        dctp_iface.doInThread("tryConnect");
-                        loop_loading.running = true;
+                        if (main_entry == try_connect_block)
+                        {
+                            dctp_iface.doInThread("tryConnect");
+                            loop_loading.running = true;
+                        }
                     }
                 }
 

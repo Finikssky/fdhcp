@@ -119,7 +119,8 @@ ScreenView
                 target: main_view_block.entry
                 onLoaded:
                 {
-                    dctp_iface.doInThread("tryAccess");
+                    if (main_entry == access_view_try_access_component)
+                        dctp_iface.doInThread("tryAccess");
                 }
             }
         }
@@ -143,8 +144,6 @@ ScreenView
                 target: dctp_iface
                 onConfigUpdate:
                 {
-                    console.log("cfgupdated")
-                    console.log(status);
                     if (status == "success") text = "Конфигурация успешно загружена"
                     if (status == "fail")    text = "Конфигурация не загружена"
                     action_change_state.nextstate = "configure: start"
@@ -154,7 +153,11 @@ ScreenView
             Connections
             {
                 target: main_view_block.entry
-                onLoaded: dctp_iface.doInThread("tryUpdateConfig");
+                onLoaded:
+                {
+                    if (main_entry == config_view_try_udpcfg_component)
+                        dctp_iface.doInThread("tryUpdateConfig");
+                }
             }
         }
     }
@@ -169,7 +172,7 @@ ScreenView
             anchors.fill: parent
             orientation: ListView.Vertical
             cacheBuffer: 2000
-            snapMode: ListView.SnapOneItem
+            //snapMode: ListView.SnapToItem
             highlightRangeMode: ListView.ApplyRange
 
             delegate: InterfaceConfigBlock
@@ -178,6 +181,8 @@ ScreenView
                         width: configure_view_interfaces_list_listview.width
                         name: IfaceName
 
+                        header.height: (configure_view_interfaces_list_listview.height / 10)
+                        header.width: configure_view_interfaces_list_listview.width
                         header.bkcolor: configureview.color;
                         header.text: "Интерфейс " + name
                         header.textcolor: "yellow"
@@ -196,12 +201,15 @@ ScreenView
                 target: main_view_block.entry
                 onLoaded:
                 {
-                    var if_str_list = dctp_iface.getIfacesList();
-                    for (var i = 0; i < if_str_list.length; i++)
+                    if (main_entry == config_view_main_component)
                     {
-                        configure_view_interfaces_list_model.append({IfaceName: if_str_list[i]})
-                        configure_view_interfaces_list_listview.currentIndex = i;
-                        configure_view_interfaces_list_listview.currentItem.interface_state = dctp_iface.getIfaceState(configure_view_interfaces_list_listview.currentItem.name);
+                        var if_str_list = dctp_iface.getIfacesList();
+                        for (var i = 0; i < if_str_list.length; i++)
+                        {
+                            configure_view_interfaces_list_model.append({IfaceName: if_str_list[i]})
+                            configure_view_interfaces_list_listview.currentIndex = i;
+                            configure_view_interfaces_list_listview.currentItem.interface_state = dctp_iface.getIfaceState(configure_view_interfaces_list_listview.currentItem.name);
+                        }
                     }
                 }
             }

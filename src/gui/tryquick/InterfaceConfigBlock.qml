@@ -6,6 +6,21 @@ Rectangle
       property alias header: interface_block_header
       property alias interface_state: switcher.switch_state;
       property string name: ""
+      state: "hovered"
+
+      states: [
+          State {
+              name: "hovered"
+              PropertyChanges {target: interface_block; height: toFixed(height);}
+              PropertyChanges {target: down_button; text: "+"}
+          },
+          State {
+              name: "unhovered"
+              PropertyChanges {target: interface_block; height: height*2;}
+              PropertyChanges {target: down_button; text: "-"}
+          }
+
+      ]
 
       TextField
       {
@@ -26,6 +41,14 @@ Rectangle
 
               text: "+"
               textcolor: "yellow"
+
+              onButtonClick:
+              {
+                  if (interface_block.state == "hovered")
+                      interface_block.state = "unhovered"
+                  else
+                      interface_block.state = "hovered"
+              }
           }
 
           SwitchSlider

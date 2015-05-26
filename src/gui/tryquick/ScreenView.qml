@@ -3,7 +3,7 @@ import QtQuick 2.0
 Rectangle
 {
     property alias error_text: _screenview_floor_errblock.text
-    property Component main_entry;
+    property alias main_entry: _screenwiew_main_entry.sourceComponent;
     property alias main_view_block: _screenview_main
     signal pressBack();
     signal pressHome();

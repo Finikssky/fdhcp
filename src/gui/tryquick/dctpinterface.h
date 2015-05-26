@@ -33,7 +33,6 @@ protected:
 
         virtual void run()
         {
-           qDebug() << "ha!";
            (context->*fun)();
         }
     };
