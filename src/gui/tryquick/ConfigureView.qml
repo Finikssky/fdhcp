@@ -180,6 +180,7 @@ ScreenView
                         height: (configure_view_interfaces_list_listview.height / 10)
                         width: configure_view_interfaces_list_listview.width
                         name: IfaceName
+                        color: configureview.color
 
                         header.height: (configure_view_interfaces_list_listview.height / 10)
                         header.width: configure_view_interfaces_list_listview.width
@@ -194,6 +195,7 @@ ScreenView
             model: ListModel
                    {
                         id: configure_view_interfaces_list_model
+                        ListElement { IfaceName: "frfr" }
                    }
 
             Connections

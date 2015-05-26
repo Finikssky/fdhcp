@@ -54,7 +54,7 @@ Window
 
     Item {
         id: mainwin_fsm
-        state: "STARTVIEW";
+        state: "CONFIGUREVIEW";
         states: [
             State {
               name: "STARTVIEW"
@@ -74,7 +74,7 @@ Window
               PropertyChanges { target: configureview;  visible: true; }
               PropertyChanges { target: destview;  visible: false;  }
               PropertyChanges { target: startview; visible: false; }
-              PropertyChanges { target: configureview;  state: "access: insert password"; }
+              PropertyChanges { target: configureview;  state: "configure: start" } //"access: insert password"; }
             }
           ]
     }

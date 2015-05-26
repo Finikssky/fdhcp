@@ -11,12 +11,12 @@ Rectangle
       states: [
           State {
               name: "hovered"
-              PropertyChanges {target: interface_block; height: toFixed(height);}
+              PropertyChanges {target: hoverblock; sourceComponent: undefined; }
               PropertyChanges {target: down_button; text: "+"}
           },
           State {
               name: "unhovered"
-              PropertyChanges {target: interface_block; height: height*2;}
+              PropertyChanges {target: hoverblock; sourceComponent: hoverblock_component; }
               PropertyChanges {target: down_button; text: "-"}
           }
 
@@ -90,6 +90,33 @@ Rectangle
                   dctp_iface.tryChangeInterfaceState(name, switch_state);
               }
           }
+      }
+
+      Loader
+      {
+            id: hoverblock
+            sourceComponent: undefined
+            anchors.top: interface_block_header.bottom
+            onStatusChanged:
+            {
+                console.log("hoverblock height =", hoverblock.height, " status: ", hoverblock.status.toString())
+                if (status == Loader.Ready)
+                    interface_block.height = interface_block_header.height + hoverblock.height;
+                else
+                    interface_block.height = interface_block_header.height
+            }
+      }
+
+      Component
+      {
+            id: hoverblock_component
+            InterfaceConfigARBlock
+            {
+                id: address_ranges
+                color: interface_block.color
+                header.height: interface_block_header.height
+                header.width: interface_block_header.width
+            }
       }
 }
 

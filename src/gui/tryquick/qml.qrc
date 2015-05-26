@@ -10,5 +10,6 @@
         <file>TextField.qml</file>
         <file>SwitchSlider.qml</file>
         <file>ScreenView.qml</file>
+        <file>InterfaceConfigARBlock.qml</file>
     </qresource>
 </RCC>

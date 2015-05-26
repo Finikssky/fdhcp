@@ -86,16 +86,17 @@ ScreenView
                 onButtonClick:
                 {
                     remote_ip.visible = true;
-                    remote_ip_textinput.focus = true;
+                    remote_ip.focus = true;
                 }
 
             }
 
-            Rectangle
+            TextInputField
             {
                 id: remote_ip
-                visible: false;
-                color: "blue"
+                visible: true
+                bkcolor: "blue"
+                textcolor: "yellow"
 
                 width: (parent.width - parent.width/5)
                 height: (parent.height / 10)
@@ -103,43 +104,22 @@ ScreenView
                 anchors.centerIn: parent;
                 anchors.verticalCenterOffset: 0.7 * (parent.height / 10) + remote.height + 10;
 
+                maximumLength: 16
 
-                TextInput
+                onReturnPressed:
                 {
-                    id: remote_ip_textinput
-                    anchors.centerIn: parent
-                    readOnly: false;
-                    enabled: true;
-                    maximumLength: 16;
-                    cursorVisible: true;
-                    color: "yellow"
-                    font.pixelSize: parent.height * 0.5
-                    //inputMask: "000.000.000.000"
-                    validator: RegExpValidator{
-                        regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/
-
-                    }
-
-                    onAccepted:
-                    {
-                        dctp_iface.module_ip = text;
-                        destview.state = "connecting";
-                        remote_ip.visible = false;
-                        text = "";
-                    }
-
+                    dctp_iface.module_ip = text;
+                    destview.state = "connecting";
+                    remote_ip.visible = false;
+                    text = "";
                 }
+
+                validator: RegExpValidator { regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/; }
 
                 border
                 {
                     color: "red"
                     width: 1
-                }
-
-                MouseArea
-                {
-                    anchors.fill: parent
-                    onClicked: remote_ip_textinput.focus = true
                 }
             }
         }

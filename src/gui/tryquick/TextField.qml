@@ -17,6 +17,7 @@ Rectangle
         anchors.fill: parent
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
+        anchors.margins: textfield.height / 5;
 
         text: ""
     }
