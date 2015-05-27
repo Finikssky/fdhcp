@@ -71,6 +71,7 @@ public slots:
 
     QStringList getIfacesList();
     QString getIfaceState(QString);
+    QStringList getAddressRanges(QString);
 
     void doInThread(QString);
 

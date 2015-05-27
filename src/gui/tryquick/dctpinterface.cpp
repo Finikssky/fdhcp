@@ -221,5 +221,41 @@ QString DCTPinterface::getIfaceState(QString name)
      return "off";
 }
 
+QStringList DCTPinterface::getAddressRanges(QString name)
+{
+    QStringList ret;
+    QFile f(TMP_CONFIG_FILE);
+
+    if (f.exists())
+    {
+        if (!f.open(QIODevice::ReadOnly))
+        {
+            qDebug() << "Ошибка открытия для чтения";
+        }
+    }
+
+    while (!f.atEnd())
+    {
+         QString line = f.readLine(512);
+         if (line.contains("interface:") && line.contains(name))
+         {
+               while (1)
+               {
+                   QString ar_line = f.readLine(512);
+                   if (ar_line.contains("range:"))
+                   {
+                       QString raw_ar_string = ar_line.section(':', 1);
+                       QString clear_ar_string = raw_ar_string.replace(" ","").replace("\n", "");
+                       if (!ret.contains(clear_ar_string)) ret.append(clear_ar_string);
+                   }
+                   if (ar_line.contains("end_interface")) break;
+               }
+         }
+
+    }
+
+    return ret;
+}
+
 
 

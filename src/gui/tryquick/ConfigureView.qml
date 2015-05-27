@@ -172,12 +172,11 @@ ScreenView
             anchors.fill: parent
             orientation: ListView.Vertical
             cacheBuffer: 2000
-            //snapMode: ListView.SnapToItem
+            snapMode: ListView.SnapToItem
             highlightRangeMode: ListView.ApplyRange
 
             delegate: InterfaceConfigBlock
                       {
-                        height: (configure_view_interfaces_list_listview.height / 10)
                         width: configure_view_interfaces_list_listview.width
                         name: IfaceName
                         color: configureview.color

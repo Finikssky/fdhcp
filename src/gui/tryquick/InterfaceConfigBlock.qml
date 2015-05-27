@@ -7,6 +7,7 @@ Rectangle
       property alias interface_state: switcher.switch_state;
       property string name: ""
       state: "hovered"
+      height: { return hoverblock.sourceComponent != undefined ? (interface_block_header.height + hoverblock.height) :  interface_block_header.height }
 
       states: [
           State {
@@ -97,14 +98,6 @@ Rectangle
             id: hoverblock
             sourceComponent: undefined
             anchors.top: interface_block_header.bottom
-            onStatusChanged:
-            {
-                console.log("hoverblock height =", hoverblock.height, " status: ", hoverblock.status.toString())
-                if (status == Loader.Ready)
-                    interface_block.height = interface_block_header.height + hoverblock.height;
-                else
-                    interface_block.height = interface_block_header.height
-            }
       }
 
       Component
@@ -116,6 +109,26 @@ Rectangle
                 color: interface_block.color
                 header.height: interface_block_header.height
                 header.width: interface_block_header.width
+
+                Connections
+                {
+                    target: hoverblock
+                    onLoaded:
+                    {
+                        update_ARs();
+                    }
+                }
+
+                function update_ARs()
+                {
+                    var ar_str_list = dctp_iface.getAddressRanges(interface_block.name);
+                    console.log("ARS: ", ar_str_list);
+                    for (var i = 0; i < ar_str_list.length; i++)
+                    {
+                        var AR = ar_str_list[i].split('-');
+                        view.model.append({SA: AR[0], EA: AR[1] })
+                    }
+                }
             }
       }
 }

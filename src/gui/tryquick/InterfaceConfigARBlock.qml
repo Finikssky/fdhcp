@@ -6,6 +6,7 @@ Rectangle
     color: parent.color
     height: _header.height + _address_ranges.height
     property alias header: _header
+    property alias view: _address_ranges
 
     TextField
     {
@@ -32,7 +33,7 @@ Rectangle
 
             onButtonClick:
             {
-                _address_ranges_model.append({SA: "192.168.1.0", EA: "192.168.1.2"});
+                _address_ranges_model.append({SA: "", EA: ""});
             }
         }
     }
@@ -41,13 +42,16 @@ Rectangle
     {
         id: _address_ranges
         anchors.top: _header.bottom
+        width: parent.width
+        height: childrenRect.height
         orientation: ListView.Vertical
-        cacheBuffer: 300
-        //snapMode: ListView.SnapToItem
+        cacheBuffer: 2000
+        snapMode: ListView.NoSnap
         highlightRangeMode: ListView.ApplyRange
 
         delegate: Rectangle
         {
+            id: delegate_obj
             height: _header.height / 2
             width: _header.width
             color: interface_block.color
@@ -62,10 +66,15 @@ Rectangle
                 textcolor: "yellow"
 
                 width: parent.width / 2.5
-                height: parent.height
+                height: parent.height * 9/10
+                radius: height/2
+
+                anchors.verticalCenter: parent.verticalCenter
 
                 anchors.left: parent.left;
                 anchors.leftMargin: 20;
+
+                text: parent.start_address
 
                 maximumLength: 16
 
@@ -81,8 +90,9 @@ Rectangle
             {
                 anchors.left: _start_address.right
                 anchors.right: _end_address.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
+                anchors.verticalCenter: parent.verticalCenter
+                height: parent.height * 9/10
+
                 textcolor: "yellow"
                 text: "-"
             }
@@ -94,12 +104,17 @@ Rectangle
                 textcolor: "yellow"
 
                 width: parent.width / 2.5
-                height: parent.height
+                height: parent.height * 9/10
+                radius: height/2
 
-                anchors.right: parent.right;
+                anchors.verticalCenter: parent.verticalCenter
+
+                anchors.right: del_range_bt.left;
                 anchors.rightMargin: 20;
 
                 maximumLength: 16
+
+                text: parent.end_address
 
                 onReturnPressed:
                 {
@@ -108,10 +123,31 @@ Rectangle
 
                 validator: RegExpValidator { regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/; }
             }
+
+            SButton
+            {
+                id: del_range_bt
+                color: "blue"
+                textcolor: "yellow"
+                text: "del"
+
+                height: parent.height * 0.7
+                width: height
+
+                anchors.verticalCenter: parent.verticalCenter
+
+                anchors.right: parent.right;
+                anchors.rightMargin: 20;
+
+                onButtonClick:
+                {
+                    _address_ranges_model.remove(parent)
+                }
+            }
         }
 
         model: ListModel {
-            id: _address_ranges_model
+            id: _address_ranges_model;
         }
     }
 }

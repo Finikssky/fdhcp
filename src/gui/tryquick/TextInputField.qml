@@ -11,6 +11,7 @@ Rectangle
     property alias readonly: edit.readOnly
     property alias validator: edit.validator
     property alias text_mask: edit.inputMask
+    property alias textHAlign: edit.horizontalAlignment
     signal returnPressed()
 
     Flickable
@@ -63,15 +64,6 @@ Rectangle
                  ensureVisible(cursorRectangle);
              }
 
-             MouseArea
-             {
-                 anchors.fill: container
-                 onClicked:
-                 {
-                     console.log("IT click")
-                     edit.focus = true;
-                 }
-             }
-        }
+           }
      }
 }
