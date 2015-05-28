@@ -13,6 +13,7 @@ Rectangle
     property alias text_mask: edit.inputMask
     property alias textHAlign: edit.horizontalAlignment
     signal returnPressed()
+    signal textfieldChanged()
 
     Flickable
     {
@@ -62,6 +63,7 @@ Rectangle
              onTextChanged:
              {
                  ensureVisible(cursorRectangle);
+                 textfieldChanged();
              }
 
            }

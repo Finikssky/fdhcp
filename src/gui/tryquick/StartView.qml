@@ -19,7 +19,7 @@ ScreenView
             {
                 id: choisetext
                 width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
+                height: (parent.height / 5)
                 color: parent.color
 
                 anchors.centerIn: parent
@@ -39,7 +39,7 @@ ScreenView
                 anchors.verticalCenterOffset: -0.7 * (parent.height / 10)
 
                 width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
+                height: (parent.height / 5)
 
                 border {
                             color: "red"

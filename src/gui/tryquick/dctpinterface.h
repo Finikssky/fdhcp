@@ -14,7 +14,7 @@ class DCTPinterface : public QObject
     Q_PROPERTY(QString module READ getModule WRITE setModule NOTIFY moduleChanged)
     Q_PROPERTY(QString module_ip READ getModuleIp WRITE setModuleIp NOTIFY moduleIpChanged)
     Q_PROPERTY(QString password READ getPassword WRITE setPassword NOTIFY passwordChanged)
-    Q_PROPERTY(QString last_error READ getLastError)
+    Q_PROPERTY(QString last_error READ getLastError WRITE setLastError NOTIFY lastErrorChanged)
 
 public:
     typedef void (DCTPinterface::*DCTPinterfaceFunction) (void);
@@ -49,6 +49,7 @@ signals:
     void connectFail();
     void accessGranted();
     void accessDenied();
+    void lastErrorChanged();
     void configUpdate(QString status);
     void ifaceChangeStateFail(QString signal_arg1);
 
@@ -63,15 +64,19 @@ public slots:
     void setPassword(QString);
 
     QString getLastError();
+    void setLastError(QString);
 
     void tryConnect();
     void tryAccess();
     void tryUpdateConfig();
+    void tryRange(QString, QString, QString);
+    void tryChangeSubnet(QString, QString, QString);
     int tryChangeInterfaceState(QString, QString);
 
     QStringList getIfacesList();
     QString getIfaceState(QString);
-    QStringList getAddressRanges(QString);
+    QStringList getSubnets(QString);
+    QStringList getSubnetProperty(QString, QString, QString);
 
     void doInThread(QString);
 

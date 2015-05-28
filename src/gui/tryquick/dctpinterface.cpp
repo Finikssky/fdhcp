@@ -58,6 +58,12 @@ QString DCTPinterface::getLastError()
     return QString(_last_error);
 }
 
+void DCTPinterface::setLastError(QString value)
+{
+    strncpy(_last_error, value.toUtf8().data(), sizeof(_last_error));
+    qDebug() << "set LE = " + value;
+}
+
 void DCTPinterface::tryConnect()
 {
     DCTP_COMMAND command;
@@ -73,7 +79,10 @@ void DCTPinterface::tryConnect()
     if (rc != -1)
         emit this->connectSuccess();
     else
+    {
         emit this->connectFail();
+        emit this->lastErrorChanged();
+    }
 }
 
 void DCTPinterface::tryUpdateConfig()
@@ -95,7 +104,10 @@ void DCTPinterface::tryUpdateConfig()
     if (rc != -1)
         emit this->configUpdate("success");
     else
+    {
         emit this->configUpdate("fail");
+        emit this->lastErrorChanged();
+    }
 
 }
 
@@ -112,10 +124,15 @@ void DCTPinterface::tryAccess()
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 
+    qDebug() << _last_error;
+
     if (rc != -1)
         emit this->accessGranted();
     else
+    {
         emit this->accessDenied();
+        emit this->lastErrorChanged();
+    }
 
 }
 
@@ -146,9 +163,34 @@ int DCTPinterface::tryChangeInterfaceState(QString name, QString state)
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 
-    if (rc == -1) emit ifaceChangeStateFail(name);
+    if (rc == -1)
+    {
+        emit ifaceChangeStateFail(name);
+        emit lastErrorChanged();
+    }
 
     return rc;
+}
+
+void DCTPinterface::tryChangeSubnet(QString iface, QString work, QString arg)
+{
+    DCTP_COMMAND command;
+    memset(&command, 0, sizeof(DCTP_COMMAND));
+
+    command.code = work == "add" ? SR_ADD_SUBNET : SR_DEL_SUBNET;
+    strncpy(command.interface, iface.toUtf8().data(), sizeof(command.interface));
+    strncpy(command.arg,  arg.toUtf8().data(), sizeof(command.arg));
+
+    qDebug() << QString(command.interface);
+    qDebug() << QString(stringize_DCTP_COMMAND_CODE(command.code));
+    qDebug() << QString(command.arg);
+
+    int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
+}
+
+void DCTPinterface::tryRange(QString iface, QString work, QString arg)
+{
+
 }
 
 void DCTPinterface::doInThread(QString fname)
@@ -221,7 +263,7 @@ QString DCTPinterface::getIfaceState(QString name)
      return "off";
 }
 
-QStringList DCTPinterface::getAddressRanges(QString name)
+QStringList DCTPinterface::getSubnets(QString name)
 {
     QStringList ret;
     QFile f(TMP_CONFIG_FILE);
@@ -241,14 +283,14 @@ QStringList DCTPinterface::getAddressRanges(QString name)
          {
                while (1)
                {
-                   QString ar_line = f.readLine(512);
-                   if (ar_line.contains("range:"))
+                   QString sub_line = f.readLine(512);
+                   if (sub_line.contains("subnet:"))
                    {
-                       QString raw_ar_string = ar_line.section(':', 1);
-                       QString clear_ar_string = raw_ar_string.replace(" ","").replace("\n", "");
-                       if (!ret.contains(clear_ar_string)) ret.append(clear_ar_string);
+                       QString raw_sub_string = sub_line.section(':', 1);
+                       QString clear_sub_string = raw_sub_string.replace("  "," ").replace("\n", "").trimmed();
+                       if (!ret.contains(clear_sub_string)) ret.append(clear_sub_string);
                    }
-                   if (ar_line.contains("end_interface")) break;
+                   if (sub_line.contains("end_interface")) break;
                }
          }
 
@@ -257,5 +299,9 @@ QStringList DCTPinterface::getAddressRanges(QString name)
     return ret;
 }
 
+QStringList DCTPinterface::getSubnetProperty(QString iface, QString subnet, QString property_name)
+{
+
+}
 
 

@@ -36,7 +36,7 @@ void * s_replyDHCP ( void * arg );
 void * sm ( void * arg );
 
 dserver_subnet_t * search_subnet (dserver_interface_t * interface, char * args , char *error);
-dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, char * args );
+dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, char * args , char * error);
 int add_range_to_subnet (dserver_subnet_t * subnet, char * range , char * error);
 int add_dns_to_subnet (dserver_subnet_t * subnet, char * address , char *error);
 int add_router_to_subnet (dserver_subnet_t * subnet, char * address , char *error);
@@ -229,7 +229,7 @@ int load_interface ( FILE * fd, dserver_interface_t * interface )
 		{
 			t_gets( fd, 0, args, sizeof (args ), 0 );
 			
-			dserver_subnet_t * subnet = add_subnet_to_interface( interface, args );
+                        dserver_subnet_t * subnet = add_subnet_to_interface( interface, args , NULL);
 			if ( subnet != NULL )
 			{
 				if ( - 1 == load_subnet( fd, subnet ) )
@@ -756,7 +756,7 @@ int del_subnet_from_interface ( dserver_interface_t * interface, char * args, ch
 	return - 1;
 }
 
-dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, char * args )
+dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, char * args, char * error )
 { //todo refactoring
 	dserver_if_settings_t * settings = & interface->settings;
 
@@ -765,7 +765,7 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 
 	if ( strlen( args ) < ( 2 * 7 ) )
 	{
-		printf( "low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen( args ) );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Low args to add subnet:\n   args: %s\n   len: %d!\n", args, strlen( args ) );
 		return NULL;
 	}
 
@@ -773,7 +773,7 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 	mask = strchr( args, ' ' );
 	if ( mask == NULL )
 	{
-		printf( "low args to add subnet, please add mask\n" );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Low args to add subnet, please add mask\n" );
 		return NULL;
 	}
 
@@ -783,12 +783,12 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 	struct sockaddr_in a_sa, m_sa;
 	if ( ! inet_pton( AF_INET, address, &( a_sa.sin_addr ) ) )
 	{
-		printf( "can't parse address: %s\n", address );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Invalid subnet address: %s\n", address );
 		return NULL;
 	}
 	if ( ! inet_pton( AF_INET, mask, &( m_sa.sin_addr ) ) )
 	{
-		printf( "can't parse mask: %s\n", mask );
+                if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Invalid subnet mask: %s\n", mask );
 		return NULL;
 	}
 
@@ -1150,7 +1150,7 @@ int execute_DCTP_command ( DCTP_COMMAND * in, DSERVER * server, char * error)
 		case SR_ADD_SUBNET:
                         idx = get_iface_idx_by_name( in->interface, server, error );
                         if ( idx == - 1 ) return - 1;
-			if ( NULL == add_subnet_to_interface( &server->interfaces[idx], in->arg ) ) return - 1;
+                        if ( NULL == add_subnet_to_interface( &server->interfaces[idx], in->arg, error ) ) return - 1;
 			break;
 
 		case SR_DEL_SUBNET:
@@ -1273,6 +1273,7 @@ void * manipulate ( void * server )
 
                 char error_string[DCTP_ERROR_DESC_SIZE] = "";
                 int exec_status = execute_DCTP_command( &pack.payload, caller, error_string );
+                printf("ERRORS: %s", strlen(error_string) == 0 ? "NO" : error_string);
 		if ( exec_status >= 0 )
                         send_DCTP_REPLY( sock, &pack.packet, DCTP_SUCCESS, &sender, NULL );
 		else

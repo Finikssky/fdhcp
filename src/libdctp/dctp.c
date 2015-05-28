@@ -23,7 +23,10 @@ const char * stringize_DCTP_COMMAND_CODE(DCTP_cmd_code_t in)
         case SR_SET_IFACE_DISABLE:
         case CL_SET_IFACE_DISABLE:
             return "iface disable";
-
+        case SR_ADD_SUBNET:
+            return "add subnet";
+        case SR_DEL_SUBNET:
+            return "del subnet";
         default: break;
     }
 
@@ -250,7 +253,10 @@ void send_DCTP_REPLY(int sock, DCTP_PACKET * in, DCTP_STATUS status, struct sock
 
         pack.payload.status = status;
         if( error_string != NULL)
+        {
+            printf("put error in reply: %s", error_string);
             strncpy(pack.payload.error, error_string, sizeof(pack.payload.error));
+        }
 
         init_DCTP_PACK((DCTP_PACKET *)&pack, DCTP_MSG_RPL, (u_int8_t *)&pack.payload, sizeof(pack.payload.status) + strlen(pack.payload.error));
         pack.packet.id = in->id;
@@ -271,7 +277,7 @@ int receive_DCTP_reply(int sock, DCTP_REPLY_PACKET * pack)
 		
 		if (pack->packet.type == DCTP_MSG_RPL)
 		{  				
-			printf("and yes! das dctp reply!\n");
+                        printf("and yes! das dctp reply! ERRORS: %s\n", pack->payload.error);
                         return bytes;
 		}
 	}

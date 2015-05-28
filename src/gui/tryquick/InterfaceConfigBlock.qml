@@ -7,18 +7,19 @@ Rectangle
       property alias interface_state: switcher.switch_state;
       property string name: ""
       state: "hovered"
-      height: { return hoverblock.sourceComponent != undefined ? (interface_block_header.height + hoverblock.height) :  interface_block_header.height }
 
       states: [
           State {
               name: "hovered"
               PropertyChanges {target: hoverblock; sourceComponent: undefined; }
               PropertyChanges {target: down_button; text: "+"}
+              PropertyChanges {target: interface_block; height: header.height }
           },
           State {
               name: "unhovered"
               PropertyChanges {target: hoverblock; sourceComponent: hoverblock_component; }
               PropertyChanges {target: down_button; text: "-"}
+              PropertyChanges {target: interface_block; height: header.height + hoverblock.height }
           }
 
       ]
@@ -103,7 +104,7 @@ Rectangle
       Component
       {
             id: hoverblock_component
-            InterfaceConfigARBlock
+           /* InterfaceConfigARBlock
             {
                 id: address_ranges
                 color: interface_block.color
@@ -127,6 +128,36 @@ Rectangle
                     {
                         var AR = ar_str_list[i].split('-');
                         view.model.append({SA: AR[0], EA: AR[1] })
+                    }
+                }
+            }
+            */
+            InteraceConfig_SubnetBlock
+            {
+                id: subnets
+                color: interface_block.color
+                header.height: interface_block_header.height
+                header.width: interface_block_header.width
+
+                Connections
+                {
+                    target: hoverblock
+                    onLoaded:
+                    {
+                        update_subnets();
+                    }
+                }
+
+                function update_subnets()
+                {
+                    var sub_str_list = dctp_iface.getSubnets(interface_block.name);
+                    console.log("ARS: ", sub_str_list);
+                    for (var i = 0; i < sub_str_list.length; i++)
+                    {
+                        var AR = sub_str_list[i].split(' ');
+                        lview_model.append({SA: AR[0], NM: AR[1] })
+                        lview.currentIndex = i;
+                        lview.currentItem.prefix = (AR[0] + " " + AR[1]);
                     }
                 }
             }

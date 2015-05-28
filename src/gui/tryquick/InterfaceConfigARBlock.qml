@@ -58,6 +58,8 @@ Rectangle
 
             property string start_address: SA;
             property string end_address: EA;
+
+            property bool need_apply: false;
             
             TextInputField
             {
@@ -81,6 +83,11 @@ Rectangle
                 onReturnPressed:
                 {
                     _end_address.focus = true
+                }
+
+                onTextfieldChanged:
+                {
+                    delegate_obj.need_apply = (_end_address.text.length != 0 && _start_address.text.length != 0);
                 }
 
                 validator: RegExpValidator { regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/; }
@@ -121,6 +128,11 @@ Rectangle
                     _end_address.focus = true
                 }
 
+                onTextfieldChanged:
+                {
+                    delegate_obj.need_apply = (_end_address.text.length != 0 && _start_address.text.length != 0);
+                }
+
                 validator: RegExpValidator { regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/; }
             }
 
@@ -129,7 +141,7 @@ Rectangle
                 id: del_range_bt
                 color: "blue"
                 textcolor: "yellow"
-                text: "del"
+                text: { delegate_obj.need_apply == true ? "sav" : "del" }
 
                 height: parent.height * 0.7
                 width: height
@@ -141,7 +153,16 @@ Rectangle
 
                 onButtonClick:
                 {
-                    _address_ranges_model.remove(parent)
+                    if (delegate_obj.need_apply)
+                    {
+                        dctp_iface.Range("add", (_start_address.text + "-" + _end_address.text));
+                        delegate_obj.need_apply = false;
+                    }
+                    else
+                    {
+                        dctp_iface.Range("del", (_start_address.text + "-" + _end_address.text) )
+                        _address_ranges_model.remove(parent);
+                    }
                 }
             }
         }

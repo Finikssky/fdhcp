@@ -14,7 +14,8 @@ Window
     {
         id: dctp_iface
         module: "server";
-        module_ip: "127.0.0.1";
+        module_ip: "127.0.0.1"
+        last_error: "Error"
     }
 
     //graphic container
@@ -25,27 +26,43 @@ Window
         StartView
         {
             id: startview
-            color: "black";
+            color: "transparent";
             anchors.fill: parent
+            opacity: 1
+            Connections {
+                target: dctp_iface
+                onLastErrorChanged: startview.error_text = dctp_iface.last_error
+            }
         }
 
         DestView
         {
             id: destview
-            color: "black";
+            color: "transparent";
             anchors.fill: parent
             onPressBack: mainwin_fsm.state = "STARTVIEW"
             onPressHome: mainwin_fsm.state = "STARTVIEW"
+
+            Connections {
+                target: dctp_iface
+                onLastErrorChanged: destview.error_text = dctp_iface.last_error
+            }
         }
 
         ConfigureView
         {
             id: configureview
-            color: "black";
+            color: "transparent";
             anchors.fill: parent
 
             onPressBack: mainwin_fsm.state = "DESTVIEW"
             onPressHome: mainwin_fsm.state = "STARTVIEW"
+
+            error_text: dctp_iface.last_error
+            Connections {
+                target: dctp_iface
+                onLastErrorChanged: configureview.error_text = dctp_iface.last_error
+            }
         }
 
 
@@ -54,7 +71,7 @@ Window
 
     Item {
         id: mainwin_fsm
-        state: "CONFIGUREVIEW";
+        state: "STARTVIEW";
         states: [
             State {
               name: "STARTVIEW"
@@ -74,7 +91,7 @@ Window
               PropertyChanges { target: configureview;  visible: true; }
               PropertyChanges { target: destview;  visible: false;  }
               PropertyChanges { target: startview; visible: false; }
-              PropertyChanges { target: configureview;  state: "configure: start" } //"access: insert password"; }
+              PropertyChanges { target: configureview;  state: "access: insert password" } //"access: insert password"; }
             }
           ]
     }

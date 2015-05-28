@@ -12,6 +12,7 @@ Rectangle
     anchors.fill: parent
     color: parent.color
 
+    Image { source: "qrc:/images/viewbackground1.jpg"; z: -1; }
     Rectangle
     {
         id: _screenview_main
@@ -41,6 +42,7 @@ Rectangle
         color: parent.color
 
         anchors.bottom: parent.bottom
+        opacity: 1
 
         SButton
         {

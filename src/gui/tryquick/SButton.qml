@@ -7,6 +7,17 @@ Rectangle
     property alias textcolor: buttonText.color
     signal buttonClick()
 
+    BorderImage {
+        id: name
+        source: "qrc:/images/ramka.png"
+        width: parent.width; height: parent.height
+        horizontalTileMode: BorderImage.Stretch
+        verticalTileMode: BorderImage.Stretch
+        border.left: 2; border.top: 1
+        border.right: 2; border.bottom: 1
+        smooth: true
+    }
+
     MouseArea
     {
        id: mouse

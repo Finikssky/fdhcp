@@ -94,7 +94,7 @@ ScreenView
             TextInputField
             {
                 id: remote_ip
-                visible: true
+                visible: false
                 bkcolor: "blue"
                 textcolor: "yellow"
 
