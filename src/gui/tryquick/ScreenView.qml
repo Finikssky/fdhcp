@@ -44,6 +44,15 @@ Rectangle
         anchors.bottom: parent.bottom
         opacity: 1
 
+        Timer
+        {
+            id: clear_error
+            running: false
+            repeat: false
+            interval: 5000
+            onTriggered: error_text = ""
+        }
+
         SButton
         {
             id: _screenview_floor_back
@@ -69,6 +78,8 @@ Rectangle
            textcolor: "yellow"
 
            text: "Errors here"
+
+           onTextChanged: clear_error.start();
         }
 
         SButton

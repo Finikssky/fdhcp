@@ -7,14 +7,21 @@ Rectangle
     property alias textcolor: buttonText.color
     signal buttonClick()
 
+    Image
+    {
+        width: parent.width
+        height: parent.height
+        source: "qrc:/images/plate.png"
+    }
+
     BorderImage {
         id: name
         source: "qrc:/images/ramka.png"
-        width: parent.width; height: parent.height
+        anchors.fill: parent
         horizontalTileMode: BorderImage.Stretch
         verticalTileMode: BorderImage.Stretch
-        border.left: 2; border.top: 1
-        border.right: 2; border.bottom: 1
+        border.left: 1; border.top: 1
+        border.right: 1; border.bottom: 1
         smooth: true
     }
 

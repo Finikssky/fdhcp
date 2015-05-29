@@ -56,11 +56,8 @@ Rectangle
 
         delegate: Rectangle
         {
-            id: delegate_obj
+            id: slv_delegate_obj
             color: "lightgreen"
-
-            height: _subnet_header.height/2
-            width: _subnet_header.width
 
             property string subnet_address: SA;
             property string netmask: NM;
@@ -69,69 +66,123 @@ Rectangle
             property string new_prefix: _subnet_prefix.text;
             property alias prefix: _subnet_prefix.text
 
-            SButton
+            state: "hovered"
+
+            states: [
+                State {
+                    name: "hovered"
+                    PropertyChanges {target: _subnet_hoverblock; sourceComponent: undefined; }
+                    //PropertyChanges {target: down_button; text: "+"}
+                    PropertyChanges {target: slv_delegate_obj; height: _subnet_header_block.height }
+                },
+                State {
+                    name: "unhovered"
+                    PropertyChanges {target: _subnet_hoverblock; sourceComponent: _subnet_hoverblock_component; }
+                    //PropertyChanges {target: down_button; text: "-"}
+                    PropertyChanges {target: slv_delegate_obj; height: _subnet_header_block.height + _subnet_hoverblock.height }
+                }
+            ]
+
+            Rectangle
             {
-                id: _subnet_sd_bt
-                text: old_prefix != new_prefix ? "save" : "del"
-                color: "blue"
-                textcolor: "yellow"
-                height: parent.height * 0.7
-                width: height * 2
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.left: parent.left
-                anchors.leftMargin: parent.width/20
+                id: _subnet_header_block
+                height: _subnet_header.height/2
+                width: _subnet_header.width
+                anchors.top: parent.top
 
-                onButtonClick:
+                SButton
                 {
-                    if (text == "save")
-                    {
-                        if (parent.old_prefix.length != 0)
-                           dctp_iface.tryChangeSubnet(interface_block.name, "del", parent.old_prefix);
-                        dctp_iface.tryChangeSubnet(interface_block.name, "add", parent.new_prefix);
+                    id: _subnet_sd_bt
+                    text: old_prefix != new_prefix ? "save" : "del"
+                    color: "blue"
+                    textcolor: "yellow"
+                    height: parent.height * 0.7
+                    width: height * 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: parent.width/20
 
-                        parent.old_prefix = parent.new_prefix;
-                    }
-                    else
+                    onButtonClick:
                     {
-                        if (parent.new_prefix.length != 0)
-                            dctp_iface.tryChangeSubnet(interface_block.name, "del", parent.new_prefix);
-                        _subnets_list_model.remove(parent);
-                    }
+                        if (text == "save")
+                        {
+                            if (slv_delegate_obj.old_prefix.length != 0)
+                               dctp_iface.tryChangeSubnet(interface_block.name, "del", slv_delegate_obj.old_prefix);
+                            dctp_iface.tryChangeSubnet(interface_block.name, "add", slv_delegate_obj.new_prefix);
 
+                            slv_delegate_obj.old_prefix = slv_delegate_obj.new_prefix;
+                        }
+                        else
+                        {
+                            if (slv_delegate_obj.new_prefix.length != 0)
+                                dctp_iface.tryChangeSubnet(interface_block.name, "del", slv_delegate_obj.new_prefix);
+                            _subnets_list_model.remove(slv_delegate_obj);
+                        }
+
+                    }
+                }
+
+                TextInputField
+                {
+                    id: _subnet_prefix
+                    textcolor: "yellow"
+                    color: "grey"
+                    text: ""
+
+                    height: parent.height
+                    anchors.top: parent.top
+                    anchors.topMargin: parent.height/20
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: parent.height/20
+                    anchors.left: _subnet_sd_bt.right
+                    anchors.leftMargin: parent.width/20
+                    anchors.right: _subnet_hover_bt.left
+                    anchors.rightMargin: parent.width/20
+                    radius: height/5
+
+                    maximumLength: 33
+
+                }
+
+                SButton
+                {
+                    id: _subnet_hover_bt
+                    text: "edit"
+                    color: "blue"
+                    textcolor: "yellow"
+                    height: parent.height * 0.7
+                    width: height * 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.right: parent.right
+                    anchors.rightMargin: parent.width/20
+
+                    onButtonClick:
+                    {
+                        if (slv_delegate_obj.state == "hovered")
+                            slv_delegate_obj.state = "unhovered"
+                        else
+                            slv_delegate_obj.state = "hovered"
+                    }
                 }
             }
 
-            TextInputField
+            Loader
             {
-                id: _subnet_prefix
-                textcolor: "yellow"
-                color: "grey"
-                text: ""
-                anchors.top: parent.top
-                anchors.topMargin: parent.height/20
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: parent.height/20
-                anchors.left: _subnet_sd_bt.right
-                anchors.leftMargin: parent.width/20
-                anchors.right: _subnet_hover_bt.left
-                anchors.rightMargin: parent.width/20
-                radius: height/5
-
-                maximumLength: 33
-
+                  id: _subnet_hoverblock
+                  sourceComponent: undefined
+                  anchors.top: _subnet_header_block.bottom
+                  anchors.topMargin: 0
             }
 
-            SButton
+            Component
             {
-                id: _subnet_hover_bt
-                text: "edit"
-                color: "blue"
-                textcolor: "yellow"
-                height: parent.height * 0.7
-                width: height * 2
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.right: parent.right
-                anchors.rightMargin: parent.width/20
+                 id: _subnet_hoverblock_component
+                 InterfaceConfigARBlock
+                 {
+                     color: "red"
+                     header.height: _subnet_header_block.height * 2
+                     header.width: _subnet_header_block.width
+                 }
             }
         }
 

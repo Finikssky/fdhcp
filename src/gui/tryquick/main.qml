@@ -63,6 +63,25 @@ Window
                 target: dctp_iface
                 onLastErrorChanged: configureview.error_text = dctp_iface.last_error
             }
+
+            //onSubnetViewOpen:
+            //{
+//
+  //          }
+        }
+
+        SubnetView
+        {
+            id: subnetview
+            color: "transparent"
+            anchors.fill: parent
+            visible: false
+
+            error_text: dctp_iface.last_error
+            Connections {
+                target: dctp_iface
+                onLastErrorChanged: configureview.error_text = dctp_iface.last_error
+            }
         }
 
 

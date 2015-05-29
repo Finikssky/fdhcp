@@ -12,9 +12,12 @@
         <file>ScreenView.qml</file>
         <file>InterfaceConfigARBlock.qml</file>
         <file>InteraceConfig_SubnetBlock.qml</file>
+        <file>SubnetView.qml</file>
     </qresource>
     <qresource prefix="/images">
         <file>viewbackground1.jpg</file>
         <file>ramka.png</file>
+        <file>plate.png</file>
+        <file>rad.png</file>
     </qresource>
 </RCC>

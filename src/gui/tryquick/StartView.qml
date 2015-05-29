@@ -30,41 +30,31 @@ ScreenView
              }
 
             SButton
-             {
+            {
                 id: serverBt
                 text: "DHCP сервер"
-                color: "blue"
+                color: "transparent"
 
                 anchors.centerIn: parent
-                anchors.verticalCenterOffset: -0.7 * (parent.height / 10)
+                anchors.verticalCenterOffset: -0.6 * (parent.height / 4)
 
                 width: (parent.width - parent.width/5)
-                height: (parent.height / 5)
-
-                border {
-                            color: "red"
-                            width: 1
-                       }
+                height: (parent.height / 4)
 
                 onButtonClick: { mainwin_fsm.state = "DESTVIEW"; dctp_iface.module = "server"; }
-              }
+            }
 
-              SButton
-              {
+            SButton
+            {
                 id: clientBt
                 text: "DHCP клиент"
-                color: "blue"
+                color: "transparent"
 
                 anchors.centerIn: parent;
-                anchors.verticalCenterOffset: 0.7 * (parent.height / 10)
+                anchors.verticalCenterOffset: 0.6 * (parent.height / 4)
 
                 width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
-
-                border {
-                           color: "red"
-                           width: 1
-                       }
+                height: (parent.height / 4)
 
                 onButtonClick: { mainwin_fsm.state = "DESTVIEW"; dctp_iface.module = "client"; }
 

@@ -21,7 +21,6 @@ Rectangle
               PropertyChanges {target: down_button; text: "-"}
               PropertyChanges {target: interface_block; height: header.height + hoverblock.height }
           }
-
       ]
 
       TextField
@@ -104,34 +103,6 @@ Rectangle
       Component
       {
             id: hoverblock_component
-           /* InterfaceConfigARBlock
-            {
-                id: address_ranges
-                color: interface_block.color
-                header.height: interface_block_header.height
-                header.width: interface_block_header.width
-
-                Connections
-                {
-                    target: hoverblock
-                    onLoaded:
-                    {
-                        update_ARs();
-                    }
-                }
-
-                function update_ARs()
-                {
-                    var ar_str_list = dctp_iface.getAddressRanges(interface_block.name);
-                    console.log("ARS: ", ar_str_list);
-                    for (var i = 0; i < ar_str_list.length; i++)
-                    {
-                        var AR = ar_str_list[i].split('-');
-                        view.model.append({SA: AR[0], EA: AR[1] })
-                    }
-                }
-            }
-            */
             InteraceConfig_SubnetBlock
             {
                 id: subnets

@@ -33,30 +33,30 @@ ScreenView
                 height: (parent.height / 10)
                 color: parent.color
 
-                anchors.centerIn: parent
-                anchors.verticalCenterOffset: -(parent.height / 5);
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: local.top;
+                anchors.bottomMargin: 20
 
                 textcolor: "yellow"
-                text: "Выберите местонахождение модуля"
+                text: {
+                    var str = "Выберите местонахождение ";
+                    str += (dctp_iface.module == "server") ? "сервера" : "клиента";
+                    return str;
+                }
             }
 
             SButton
             {
                 id: local
-                text: "local"
-                color: "blue"
+                text: "Локальный"
+                color: "transparent"
                 textcolor: "yellow"
 
                 anchors.centerIn: parent
-                anchors.verticalCenterOffset: -0.7 * (parent.height / 10)
+                anchors.verticalCenterOffset: -0.6 * height
 
-                width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
-
-                border {
-                     color: "red"
-                     width: 1
-                }
+                width:  0.8 * parent.width
+                height: 0.25 * parent.height
 
                 onButtonClick:
                 {
@@ -68,20 +68,15 @@ ScreenView
             SButton
             {
                 id: remote
-                text: "remote"
-                color: "blue"
+                text: "Удаленный"
+                color: "transparent"
                 textcolor: "yellow"
 
                 anchors.centerIn: parent;
-                anchors.verticalCenterOffset: 0.7 * (parent.height / 10)
+                anchors.verticalCenterOffset: 0.6 * height
 
-                width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
-
-                border {
-                     color: "red"
-                     width: 1
-                 }
+                width:  0.8 * parent.width
+                height: 0.25 * parent.height
 
                 onButtonClick:
                 {
@@ -98,11 +93,11 @@ ScreenView
                 bkcolor: "blue"
                 textcolor: "yellow"
 
-                width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
+                width:  0.8 * parent.width
+                height: 0.15 * parent.height
 
                 anchors.centerIn: parent;
-                anchors.verticalCenterOffset: 0.7 * (parent.height / 10) + remote.height + 10;
+                anchors.verticalCenterOffset: 0.6 * height + remote.height + 10;
 
                 maximumLength: 16
 
@@ -135,31 +130,45 @@ ScreenView
             id: try_connect_entry
             color: destview.color
 
+            Image
+            {
+                id: loader_icon
+                height: 0.2 * parent.height
+                width: height
+
+                visible: rotate_icon.running
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: try_connect_text.bottom
+                anchors.topMargin: height/2
+
+                source: "qrc:/images/rad.png"
+            }
+
             TextField
             {
                 id: try_connect_text
                 anchors.centerIn: parent
                 color: parent.color
-                width: (parent.width - parent.width/5)
-                height: (parent.height / 10)
+                width: 0.8 * parent.height
+                height: 0.2 * parent.height
 
                 textcolor: "yellow";
-                text: "Connecting";
+                text: "Попытка соединения";
 
                 Connections
                 {
                     target: dctp_iface
                     onConnectSuccess:
                     {
-                        loop_loading.running = false;
-                        try_connect_text.text = "Successfuly connected"
+                        rotate_icon.running = false;
+                        try_connect_text.text = "Соединение установлено"
                         delay_timer.cn_status = true;
                         delay_timer.running = true;
                     }
                     onConnectFail:
                     {
-                        loop_loading.running = false;
-                        try_connect_text.text = "Connect failed";
+                        rotate_icon.running = false;
+                        try_connect_text.text = "Попытка соединения провалена";
                         delay_timer.cn_status = false;
                         delay_timer.running = true;
                     }
@@ -173,25 +182,22 @@ ScreenView
                         if (main_entry == try_connect_block)
                         {
                             dctp_iface.doInThread("tryConnect");
-                            loop_loading.running = true;
+                            rotate_icon.running = true;
                         }
                     }
                 }
 
-                Timer
+                SequentialAnimation
                 {
-                    id: loop_loading
-                    interval: 400
-                    repeat: true;
-                    running: false;
-                    property int dots: 0;
-
-                    onTriggered:
+                    id: rotate_icon
+                    running: false
+                    loops: Animation.Infinite
+                    NumberAnimation
                     {
-                        try_connect_text.text = "Connecting";
-                        for(var i = 0; i < dots; i++) try_connect_text.text += ".";
-                        dots++;
-                        dots %= 4;
+                        target: loader_icon
+                        property: "rotation"
+                        duration: 1800
+                        to: loader_icon.rotation + 360
                     }
                 }
             }

@@ -4,13 +4,13 @@ Rectangle
 {
     id: _contaner
     color: parent.color
-    height: _header.height + _address_ranges.height
-    property alias header: _header
+    height: _ar_header.height + _address_ranges.height
+    property alias header: _ar_header
     property alias view: _address_ranges
 
     TextField
     {
-        id: _header
+        id: _ar_header
         color: parent.color
         textcolor: "yellow"
         text: "Диапазоны адресов:"
@@ -41,7 +41,7 @@ Rectangle
     ListView
     {
         id: _address_ranges
-        anchors.top: _header.bottom
+        anchors.top: _ar_header.bottom
         width: parent.width
         height: childrenRect.height
         orientation: ListView.Vertical
@@ -52,8 +52,8 @@ Rectangle
         delegate: Rectangle
         {
             id: delegate_obj
-            height: _header.height / 2
-            width: _header.width
+            height: _ar_header.height / 2
+            width: _ar_header.width
             color: interface_block.color
 
             property string start_address: SA;
