@@ -188,11 +188,6 @@ void DCTPinterface::tryChangeSubnet(QString iface, QString work, QString arg)
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 }
 
-void DCTPinterface::tryRange(QString iface, QString work, QString arg)
-{
-
-}
-
 void DCTPinterface::doInThread(QString fname)
 {
     SingleTask * task;
@@ -204,69 +199,11 @@ void DCTPinterface::doInThread(QString fname)
     QThreadPool::globalInstance()->start(task);
 }
 
-QStringList DCTPinterface::getIfacesList()
+
+QStringList DCTPinterface::getFullConfig()
 {
-     QStringList ret;
-     QFile f(TMP_CONFIG_FILE);
-
-     if (f.exists())
-     {
-         if (!f.open(QIODevice::ReadOnly))
-         {
-             qDebug() << "Ошибка открытия для чтения";
-         }
-     }
-
-     while (!f.atEnd())
-     {
-          QString line = f.readLine(512);
-          if (line.contains("interface:"))
-          {
-                QString raw_iface_name = line.section(':', 1);
-                QString clear_iface_name = raw_iface_name.replace(" ","").replace("\n", "");
-                if (!ret.contains(clear_iface_name)) ret.append(clear_iface_name);
-          }
-
-     }
-
-     return ret;
-}
-
-QString DCTPinterface::getIfaceState(QString name)
-{
-     QFile f(TMP_CONFIG_FILE);
-
-     if (f.exists())
-     {
-         if (!f.open(QIODevice::ReadOnly))
-         {
-             qDebug() << "Ошибка открытия для чтения";
-         }
-     }
-
-     while (!f.atEnd())
-     {
-          QString line = f.readLine(512);
-          if (line.contains("interface:") && line.contains(name))
-          {
-                while (1)
-                {
-                    QString iface_line = f.readLine(512);
-                    if (iface_line.contains("enable")) return "on";
-                    if (iface_line.contains("disable")) return "off";
-                    if (iface_line.contains("end_interface")) return "off";
-                }
-          }
-
-     }
-
-     return "off";
-}
-
-QStringList DCTPinterface::getSubnets(QString name)
-{
-    QStringList ret;
     QFile f(TMP_CONFIG_FILE);
+    QStringList ret;
 
     if (f.exists())
     {
@@ -275,33 +212,131 @@ QStringList DCTPinterface::getSubnets(QString name)
             qDebug() << "Ошибка открытия для чтения";
         }
     }
-
     while (!f.atEnd())
     {
-         QString line = f.readLine(512);
-         if (line.contains("interface:") && line.contains(name))
-         {
-               while (1)
-               {
-                   QString sub_line = f.readLine(512);
-                   if (sub_line.contains("subnet:"))
-                   {
-                       QString raw_sub_string = sub_line.section(':', 1);
-                       QString clear_sub_string = raw_sub_string.replace("  "," ").replace("\n", "").trimmed();
-                       if (!ret.contains(clear_sub_string)) ret.append(clear_sub_string);
-                   }
-                   if (sub_line.contains("end_interface")) break;
-               }
-         }
-
+         ret.append(f.readLine(512).replace("\n", "").replace("  ", " "));
     }
 
     return ret;
 }
 
-QStringList DCTPinterface::getSubnetProperty(QString iface, QString subnet, QString property_name)
+QStringList DCTPinterface::getIfacesList()
 {
+    QStringList config = getFullConfig();
+    QStringList ret;
 
+    for (int i = 0; i < config.count(); i++)
+    {
+        QString line = config[i];
+
+        if (line.contains("interface:"))
+        {
+              QString raw_iface_name = line.section(':', 1);
+              QString clear_iface_name = raw_iface_name.trimmed();
+              if (!ret.contains(clear_iface_name)) ret.append(clear_iface_name);
+        }
+    }
+
+    return ret;
+}
+
+QStringList DCTPinterface::getIfaceConfig(QString name)
+{
+    QStringList config = getFullConfig();
+    QStringList ret;
+
+    for (int i = 0; i < config.count(); i++)
+    {
+        QString line = config[i];
+
+        if (line.contains("interface:") && line.contains(name))
+        {
+              while (1)
+              {
+                  QString iface_line = config[i];
+                  if (iface_line.contains("end_interface")) return ret;
+
+                  ret.append(iface_line);
+                  i++;
+              }
+        }
+    }
+
+    return ret;
+}
+
+QString DCTPinterface::getIfaceState(QString name)
+{
+    QStringList if_config = getIfaceConfig(name);
+    if (if_config.contains("enable")) return "on";
+
+    return "off";
+}
+
+QStringList DCTPinterface::getSubnetConfig(QString if_name, QString sub_name)
+{
+    QStringList if_config = getIfaceConfig(if_name);
+    QStringList ret;
+
+    for (int i = 0; i < if_config.count(); i++)
+    {
+        QString line = if_config[i];
+
+        if (line.contains("subnet:") && line.contains(sub_name))
+        {
+              while (1)
+              {
+                  QString subnet_line = if_config[i];
+                  if (subnet_line.contains("end_subnet")) return ret;
+
+                  ret.append(subnet_line);
+                  i++;
+              }
+        }
+    }
+
+    return ret;
+}
+
+QStringList DCTPinterface::getSubnets(QString name)
+{
+    QStringList if_config;
+    QStringList ret;
+
+    if_config = getIfaceConfig(name);
+
+    for (int i = 0; i < if_config.count(); i++)
+    {
+        QString line = if_config[i];
+        if (line.contains("subnet:"))
+        {
+            QString raw_subnet_name = line.section(':', 1);
+            QString clear_subnet_name = raw_subnet_name.trimmed();
+            if (!ret.contains(clear_subnet_name)) ret.append(clear_subnet_name);
+        }
+    }
+
+    return ret;
+}
+
+
+QStringList DCTPinterface::getSubnetProperty(QString if_name, QString sub_name, QString property_name)
+{
+    QStringList sub_config = getSubnetConfig(if_name, sub_name);
+    QStringList ret;
+
+    for (int i = 0; i < sub_config.count(); i++)
+    {
+        QString line = sub_config[i];
+        if (line.contains(property_name))
+        {
+            QString raw_opt_arg = line.section(':', 1);
+            QString clear_opt_arg = raw_opt_arg.trimmed();
+            if (!ret.contains(clear_opt_arg)) ret.append(clear_opt_arg);
+        }
+    }
+
+    return ret;
 }
 
 

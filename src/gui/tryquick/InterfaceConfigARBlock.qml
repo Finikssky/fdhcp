@@ -41,13 +41,17 @@ Rectangle
     ListView
     {
         id: _address_ranges
-        anchors.top: _ar_header.bottom
         width: parent.width
         height: childrenRect.height
         orientation: ListView.Vertical
         cacheBuffer: 2000
         snapMode: ListView.NoSnap
         highlightRangeMode: ListView.ApplyRange
+
+        header: Component
+        {
+
+        }
 
         delegate: Rectangle
         {
@@ -167,7 +171,8 @@ Rectangle
             }
         }
 
-        model: ListModel {
+        model: ListModel
+        {
             id: _address_ranges_model;
         }
     }

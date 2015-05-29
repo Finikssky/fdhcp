@@ -3,6 +3,7 @@ import QtQuick 2.0
 Rectangle
 {
       id: interface_block
+      height: childrenRect.height
       property alias header: interface_block_header
       property alias interface_state: switcher.switch_state;
       property string name: ""
@@ -13,13 +14,11 @@ Rectangle
               name: "hovered"
               PropertyChanges {target: hoverblock; sourceComponent: undefined; }
               PropertyChanges {target: down_button; text: "+"}
-              PropertyChanges {target: interface_block; height: header.height }
           },
           State {
               name: "unhovered"
               PropertyChanges {target: hoverblock; sourceComponent: hoverblock_component; }
               PropertyChanges {target: down_button; text: "-"}
-              PropertyChanges {target: interface_block; height: header.height + hoverblock.height }
           }
       ]
 
@@ -98,6 +97,8 @@ Rectangle
             id: hoverblock
             sourceComponent: undefined
             anchors.top: interface_block_header.bottom
+            anchors.topMargin: sourceComponent == undefined ? 0 : interface_block_header.height/5
+            height: childrenRect.height
       }
 
       Component

@@ -3,8 +3,8 @@ import QtQuick 2.0
 Rectangle
 {
     id: _subnet
+    height: childrenRect.height
     property alias header: _subnet_header
-    height: _subnet_header.height + _subnets_list.height
     property alias lview_model: _subnets_list_model
     property alias lview: _subnets_list
 
@@ -44,21 +44,18 @@ Rectangle
         id: _subnets_list
 
         width: parent.width
-        height: childrenRect.height
+        //height: childrenRect.height
 
         anchors.top: _subnet_header.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
         cacheBuffer: 2000
         orientation: ListView.Vertical
         snapMode: ListView.NoSnap
-        highlightRangeMode: ListView.ApplyRange
 
         delegate: Rectangle
         {
             id: slv_delegate_obj
             color: "lightgreen"
-
+            height: childrenRect.height
             property string subnet_address: SA;
             property string netmask: NM;
 
@@ -170,8 +167,9 @@ Rectangle
             {
                   id: _subnet_hoverblock
                   sourceComponent: undefined
+                  height: childrenRect.height
                   anchors.top: _subnet_header_block.bottom
-                  anchors.topMargin: 0
+                  anchors.topMargin: sourceComponent == undefined ? 0 : _subnet_header.height / 5;
             }
 
             Component

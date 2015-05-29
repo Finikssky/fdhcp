@@ -69,13 +69,18 @@ public slots:
     void tryConnect();
     void tryAccess();
     void tryUpdateConfig();
-    void tryRange(QString, QString, QString);
+
     void tryChangeSubnet(QString, QString, QString);
     int tryChangeInterfaceState(QString, QString);
 
+    QStringList getFullConfig();
+
     QStringList getIfacesList();
+    QStringList getIfaceConfig(QString);
     QString getIfaceState(QString);
+
     QStringList getSubnets(QString);
+    QStringList getSubnetConfig(QString, QString);
     QStringList getSubnetProperty(QString, QString, QString);
 
     void doInThread(QString);
