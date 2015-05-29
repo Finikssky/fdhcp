@@ -8,10 +8,11 @@ ListView
         orientation: ListView.Vertical
         cacheBuffer: 2000
         snapMode: ListView.NoSnap
-        highlightRangeMode: ListView.ApplyRange
+  //      highlightRangeMode: ListView.ApplyRange
 
         property real header_height;
         property real header_width;
+        property string subnet_name: "";
         property string color;
 
         header: Component
@@ -27,7 +28,6 @@ ListView
                 textcolor: "yellow"
                 text: "Диапазоны адресов:"
                 textHAlign: Text.AlignLeft
-
 
                 SButton
                 {
@@ -52,20 +52,19 @@ ListView
 
         delegate: Rectangle
         {
-            id: delegate_obj
-            height: _ar_header.height / 2
-            width: _ar_header.width
-            color: interface_block.color
+            id: ar_delegate_obj
+            height: header_height / 2
+            width: header_width
+            color: _address_ranges.color
 
-            property string start_address: SA;
-            property string end_address: EA;
-
-            property bool need_apply: false;
+            property string old_range: SA + "-" + EA;
+            property string new_range: _start_address.text + "-" + _end_address.text;
+            property int idx: index
             
             TextInputField
             {
                 id: _start_address
-                bkcolor: "lightblue"
+                bkcolor: "blue"
                 textcolor: "yellow"
 
                 width: parent.width / 2.5
@@ -77,18 +76,15 @@ ListView
                 anchors.left: parent.left;
                 anchors.leftMargin: 20;
 
-                text: parent.start_address
+                textHAlign: Text.AlignHCenter
+
+                text: SA
 
                 maximumLength: 16
 
                 onReturnPressed:
                 {
                     _end_address.focus = true
-                }
-
-                onTextfieldChanged:
-                {
-                    delegate_obj.need_apply = (_end_address.text.length != 0 && _start_address.text.length != 0);
                 }
 
                 validator: RegExpValidator { regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/; }
@@ -120,18 +116,15 @@ ListView
                 anchors.right: del_range_bt.left;
                 anchors.rightMargin: 20;
 
+                textHAlign: Text.AlignHCenter
+
                 maximumLength: 16
 
-                text: parent.end_address
+                text: EA
 
                 onReturnPressed:
                 {
                     _end_address.focus = true
-                }
-
-                onTextfieldChanged:
-                {
-                    delegate_obj.need_apply = (_end_address.text.length != 0 && _start_address.text.length != 0);
                 }
 
                 validator: RegExpValidator { regExp: /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/; }
@@ -142,7 +135,7 @@ ListView
                 id: del_range_bt
                 color: "blue"
                 textcolor: "yellow"
-                text: { delegate_obj.need_apply == true ? "sav" : "del" }
+                text: parent.old_range != parent.new_range ? "save" : "del"
 
                 height: parent.height * 0.7
                 width: height
@@ -152,18 +145,39 @@ ListView
                 anchors.right: parent.right;
                 anchors.rightMargin: 20;
 
+
                 onButtonClick:
                 {
-                    if (delegate_obj.need_apply)
+                    console.log("ind:", ar_delegate_obj.idx);
+                    if (text == "save")
                     {
-                        dctp_iface.Range("add", (_start_address.text + "-" + _end_address.text));
-                        delegate_obj.need_apply = false;
+                        if (_start_address.text.length == 0)
+                        {
+                            error_text = "Пожалуйста заполните стартовый адрес диапазона";
+                            return;
+                        }
+
+                        if (_end_address.text.length == 0)
+                        {
+                            error_text = "Пожалуйста заполните конечный адрес диапазона";
+                            return;
+                        }
+
+                        if (ar_delegate_obj.old_range.length > 1)
+                           dctp_iface.tryChSubnetProperty("del", interface_block.name, _address_ranges.subnet_name, "range", ar_delegate_obj.old_range);
+
+                        if (ar_delegate_obj.new_range.length > 1)
+                           dctp_iface.tryChSubnetProperty("add", interface_block.name, _address_ranges.subnet_name, "range", ar_delegate_obj.new_range);
+
+                        ar_delegate_obj.old_range = ar_delegate_obj.new_range;
                     }
                     else
                     {
-                        dctp_iface.Range("del", (_start_address.text + "-" + _end_address.text) )
-                        _address_ranges_model.remove(parent);
+                        if (ar_delegate_obj.new_range.length > 1)
+                            dctp_iface.tryChSubnetProperty("del", interface_block.name,  _address_ranges.subnet_name, "range", ar_delegate_obj.new_range);
+                        _address_ranges_model.remove(ar_delegate_obj.idx);
                     }
+
                 }
             }
         }

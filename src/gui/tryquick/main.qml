@@ -59,7 +59,8 @@ Window
             onPressHome: mainwin_fsm.state = "STARTVIEW"
 
             error_text: dctp_iface.last_error
-            Connections {
+            Connections
+            {
                 target: dctp_iface
                 onLastErrorChanged: configureview.error_text = dctp_iface.last_error
             }

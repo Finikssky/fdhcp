@@ -6,6 +6,7 @@ Rectangle
     color: "transparent"
     property alias text: buttonText.text
     property alias textcolor: buttonText.color
+    property alias mouse: mouse
     signal buttonClick()
 
     Image

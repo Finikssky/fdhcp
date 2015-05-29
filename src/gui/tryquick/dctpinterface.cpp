@@ -172,20 +172,49 @@ int DCTPinterface::tryChangeInterfaceState(QString name, QString state)
     return rc;
 }
 
-void DCTPinterface::tryChangeSubnet(QString iface, QString work, QString arg)
+void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString subnet, QString option, QString arg)
 {
     DCTP_COMMAND command;
     memset(&command, 0, sizeof(DCTP_COMMAND));
+    iface = iface.replace("  ", " ").replace("\n", "").trimmed();
+    subnet = subnet.replace("  ", " ").replace("\n", "").trimmed();
+    arg = arg.replace("  ", " ").replace("\n", "").trimmed();
 
-    command.code = work == "add" ? SR_ADD_SUBNET : SR_DEL_SUBNET;
+    if (_module == "server")
+    {
+        if (work == "add")
+        {
+             if (option == "name")
+             {
+                command.code = SR_ADD_SUBNET;
+             }
+             else if (option == "range")
+             {
+                command.code = SR_ADD_POOL;
+             }
+        }
+        else
+        {
+            if (option == "name")
+            {
+               command.code = SR_DEL_SUBNET;
+            }
+            else if (option == "range")
+            {
+               command.code = SR_DEL_POOL;
+            }
+        }
+    }
     strncpy(command.interface, iface.toUtf8().data(), sizeof(command.interface));
-    strncpy(command.arg,  arg.toUtf8().data(), sizeof(command.arg));
+    snprintf(command.arg, sizeof(command.arg), "%s%s%s", subnet.toUtf8().data(), (arg.length() != 0) ? " " : "", arg.toUtf8().data());
 
     qDebug() << QString(command.interface);
     qDebug() << QString(stringize_DCTP_COMMAND_CODE(command.code));
     qDebug() << QString(command.arg);
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
+
+    if (rc == -1) emit lastErrorChanged();
 }
 
 void DCTPinterface::doInThread(QString fname)

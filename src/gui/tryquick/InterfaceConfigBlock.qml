@@ -108,8 +108,8 @@ Rectangle
             {
                 id: subnets
                 color: interface_block.color
-                header.height: interface_block_header.height
-                header.width: interface_block_header.width
+                header_height: interface_block_header.height
+                header_width: interface_block_header.width
 
                 Connections
                 {
@@ -123,13 +123,11 @@ Rectangle
                 function update_subnets()
                 {
                     var sub_str_list = dctp_iface.getSubnets(interface_block.name);
-                    console.log("ARS: ", sub_str_list);
+                    console.log("SUBS: ", sub_str_list);
                     for (var i = 0; i < sub_str_list.length; i++)
                     {
                         var AR = sub_str_list[i].split(' ');
-                        lview_model.append({SA: AR[0], NM: AR[1] })
-                        lview.currentIndex = i;
-                        lview.currentItem.prefix = (AR[0] + " " + AR[1]);
+                        model.append({SA: AR[0], NM: AR[1] })
                     }
                 }
             }

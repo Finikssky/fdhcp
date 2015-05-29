@@ -70,7 +70,7 @@ public slots:
     void tryAccess();
     void tryUpdateConfig();
 
-    void tryChangeSubnet(QString, QString, QString);
+    void tryChSubnetProperty(QString, QString, QString, QString, QString);
     int tryChangeInterfaceState(QString, QString);
 
     QStringList getFullConfig();
