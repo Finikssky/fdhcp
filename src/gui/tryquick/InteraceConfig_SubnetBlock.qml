@@ -44,7 +44,7 @@ Rectangle
         id: _subnets_list
 
         width: parent.width
-        //height: childrenRect.height
+        height: childrenRect.height
 
         anchors.top: _subnet_header.bottom
         cacheBuffer: 2000
@@ -169,7 +169,7 @@ Rectangle
                   sourceComponent: undefined
                   height: childrenRect.height
                   anchors.top: _subnet_header_block.bottom
-                  anchors.topMargin: sourceComponent == undefined ? 0 : _subnet_header.height / 5;
+                  //anchors.topMargin: sourceComponent == undefined ? 0 : _subnet_header.height / 5;
             }
 
             Component
@@ -178,8 +178,8 @@ Rectangle
                  InterfaceConfigARBlock
                  {
                      color: "red"
-                     header.height: _subnet_header_block.height * 2
-                     header.width: _subnet_header_block.width
+                     header_height: _subnet_header_block.height * 2
+                     header_width: _subnet_header_block.width
                  }
             }
         }

@@ -1,56 +1,53 @@
 import QtQuick 2.0
 
-Rectangle
+ListView
 {
-    id: _contaner
-    color: parent.color
-    height: _ar_header.height + _address_ranges.height
-    property alias header: _ar_header
-    property alias view: _address_ranges
-
-    TextField
-    {
-        id: _ar_header
-        color: parent.color
-        textcolor: "yellow"
-        text: "Диапазоны адресов:"
-        textHAlign: Text.AlignLeft
-        anchors.top: _contaner.top
-
-        SButton
-        {
-            id: add_button
-            width: parent.height * 0.5
-            height: width
-            color: parent.color
-
-            anchors.right: parent.right
-            anchors.rightMargin: parent.width/20
-            anchors.verticalCenter: parent.verticalCenter
-
-            text: "+"
-            textcolor: "yellow"
-
-            onButtonClick:
-            {
-                _address_ranges_model.append({SA: "", EA: ""});
-            }
-        }
-    }
-
-    ListView
-    {
         id: _address_ranges
         width: parent.width
-        height: childrenRect.height
+        height: contentHeight
         orientation: ListView.Vertical
         cacheBuffer: 2000
         snapMode: ListView.NoSnap
         highlightRangeMode: ListView.ApplyRange
 
+        property real header_height;
+        property real header_width;
+        property string color;
+
         header: Component
         {
+            TextField
+            {
+                id: _ar_header
 
+                height: header_height
+                width:  header_width
+
+                color: _address_ranges.color
+                textcolor: "yellow"
+                text: "Диапазоны адресов:"
+                textHAlign: Text.AlignLeft
+
+
+                SButton
+                {
+                    id: add_button
+                    width: parent.height * 0.5
+                    height: width
+
+                    anchors.right: parent.right
+                    anchors.rightMargin: parent.width/20
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    text: "+"
+                    textcolor: "yellow"
+
+                    onButtonClick:
+                    {
+                        _address_ranges_model.append({SA: "", EA: ""});
+                    }
+                }
+            }
         }
 
         delegate: Rectangle
@@ -175,6 +172,6 @@ Rectangle
         {
             id: _address_ranges_model;
         }
-    }
+
 }
 

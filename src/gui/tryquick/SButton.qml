@@ -3,6 +3,7 @@ import QtQuick 2.0
 Rectangle
 {
     id: container
+    color: "transparent"
     property alias text: buttonText.text
     property alias textcolor: buttonText.color
     signal buttonClick()
