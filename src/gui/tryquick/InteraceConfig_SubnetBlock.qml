@@ -175,9 +175,15 @@ ListView
             Component
             {
                  id: _subnet_hoverblock_component
+
+                 Rectangle {
+                    height: ars.height + dnss.height
+                    property string strcolor: "#2f0000cf"
+
                  InterfaceConfigARBlock
                  {
-                     color: "#2f0000cf"
+                     id: ars
+                     color: parent.strcolor
                      header_height: _subnet_header_block.height * 2
                      header_width: _subnet_header_block.width
                      subnet_name: _subnet_prefix.text
@@ -188,11 +194,11 @@ ListView
                          onLoaded:
                          {
                              if (_subnet_hoverblock.sourceComponent != undefined)
-                                update_ars();
+                                ars.update_config();
                          }
                      }
 
-                     function update_ars()
+                     function update_config()
                      {
                          var ars_str_list = dctp_iface.getSubnetProperty(interface_block.name, _subnet_prefix.text, "range");
                          console.log("ARS: ", ars_str_list);
@@ -202,6 +208,38 @@ ListView
                              model.append({SA: ARS[0], EA: ARS[1] })
                          }
                      }
+                 }
+
+                 InterfaceConfig_DNSBlock
+                 {
+                        id: dnss
+                        color: parent.strcolor
+                        header_height: _subnet_header_block.height * 2
+                        header_width: _subnet_header_block.width
+                        subnet_name: _subnet_prefix.text
+                        anchors.top: ars.bottom
+
+                        Connections
+                        {
+                            target: _subnet_hoverblock
+                            onLoaded:
+                            {
+                                if (_subnet_hoverblock.sourceComponent != undefined)
+                                   dnss.update_config();
+                            }
+                        }
+
+                        function update_config()
+                        {
+                            var dnss_str_list = dctp_iface.getSubnetProperty(interface_block.name, _subnet_prefix.text, "dns-server");
+                            console.log("DNSS: ", dnss_str_list);
+                            for (var i = 0; i < dnss_str_list.length; i++)
+                            {
+                                model.append({DA: dnss_str_list[i]})
+                            }
+                        }
+                 }
+
                  }
             }
         }

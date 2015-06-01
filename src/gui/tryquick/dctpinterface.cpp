@@ -192,6 +192,10 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
              {
                 command.code = SR_ADD_POOL;
              }
+             else if (option == "dns-server")
+             {
+                command.code = SR_ADD_DNS;
+             }
         }
         else
         {
@@ -202,6 +206,10 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
             else if (option == "range")
             {
                command.code = SR_DEL_POOL;
+            }
+            else if (option == "dns-server")
+            {
+               command.code = SR_DEL_DNS;
             }
         }
     }
@@ -227,7 +235,6 @@ void DCTPinterface::doInThread(QString fname)
 
     QThreadPool::globalInstance()->start(task);
 }
-
 
 QStringList DCTPinterface::getFullConfig()
 {
@@ -297,7 +304,11 @@ QStringList DCTPinterface::getIfaceConfig(QString name)
 QString DCTPinterface::getIfaceState(QString name)
 {
     QStringList if_config = getIfaceConfig(name);
-    if (if_config.contains("enable")) return "on";
+    for (int i = 0; i < if_config.count(); i++)
+    {
+        if (if_config[i].contains("enable")) return "on";
+        if (if_config[i].contains("disable")) return "off";
+    }
 
     return "off";
 }

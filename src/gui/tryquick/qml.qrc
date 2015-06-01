@@ -12,7 +12,7 @@
         <file>ScreenView.qml</file>
         <file>InterfaceConfigARBlock.qml</file>
         <file>InteraceConfig_SubnetBlock.qml</file>
-        <file>SubnetView.qml</file>
+        <file>InterfaceConfig_DNSBlock.qml</file>
     </qresource>
     <qresource prefix="/images">
         <file>viewbackground1.jpg</file>
