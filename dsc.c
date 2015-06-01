@@ -259,6 +259,8 @@ int load_config ( DSERVER * server, char * c_file )
 	int i;
 	char com[128] = "";
 
+        printf("\nSTART READ CONFIG\n");
+
 	for ( i = 0; i < MAX_INTERFACES; i ++ )
 	{
 		dserver_interface_t * interface = & server->interfaces[i];
@@ -267,8 +269,18 @@ int load_config ( DSERVER * server, char * c_file )
 		{
 			if ( 0 == strcmp( com, "interface" ) )
 			{
+                                char tmp_iface[IFNAMELEN] = "";
+                                t_gets( fd, 0, tmp_iface, sizeof (tmp_iface), 0 );
+
+                                if (-1 != get_iface_idx_by_name(tmp_iface, server, NULL))
+                                {
+                                    printf("duplicate #%s#\n", tmp_iface);
+                                    continue;
+                                }
+
 				memset( interface, 0, sizeof (*interface ) );
-				t_gets( fd, 0, interface->name, sizeof (interface->name ), 0 );
+                                memcpy(interface->name, tmp_iface, sizeof(tmp_iface));
+
 				if ( - 1 == load_interface( fd, interface ) )
 				{
 					printf( "parse config error: can't reach end of interface" );
@@ -280,6 +292,8 @@ int load_config ( DSERVER * server, char * c_file )
 			memset( com, 0, sizeof (com ) );
 		}
 	}
+
+        printf("\nEND READ CONFIG\n");
 
 	fclose( fd );
 	return 0;
@@ -730,7 +744,7 @@ int get_iface_idx_by_name ( char * ifname, DSERVER * server, char * error )
 			return i;
 
         if (NULL != error) snprintf(error, DCTP_ERROR_DESC_SIZE, "Interface %s not found", ifname);
-	return - 1;
+        return -1;
 }
 
 int del_subnet_from_interface ( dserver_interface_t * interface, char * args, char * error )
