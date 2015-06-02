@@ -10,9 +10,9 @@
         <file>TextField.qml</file>
         <file>SwitchSlider.qml</file>
         <file>ScreenView.qml</file>
-        <file>InterfaceConfigARBlock.qml</file>
         <file>InteraceConfig_SubnetBlock.qml</file>
-        <file>InterfaceConfig_DNSBlock.qml</file>
+        <file>SubnetOption_STR.qml</file>
+        <file>SubnetOption_2STR.qml</file>
     </qresource>
     <qresource prefix="/images">
         <file>viewbackground1.jpg</file>

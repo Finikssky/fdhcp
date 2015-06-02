@@ -196,6 +196,18 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
              {
                 command.code = SR_ADD_DNS;
              }
+             else if (option == "router")
+             {
+                command.code = SR_ADD_ROUTER;
+             }
+             else if (option == "domain_name")
+             {
+                command.code = SR_SET_DOMAIN_NAME;
+             }
+             else if (option == "lease_time")
+             {
+                 command.code = SR_SET_LEASETIME;
+             }
         }
         else
         {
@@ -210,6 +222,20 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
             else if (option == "dns-server")
             {
                command.code = SR_DEL_DNS;
+            }
+            else if (option == "router")
+            {
+               command.code = SR_DEL_ROUTER;
+            }
+            else if (option == "domain_name")
+            {
+               command.code = SR_SET_DOMAIN_NAME;
+               arg = "";
+            }
+            else if (option == "lease_time")
+            {
+                command.code = SR_SET_LEASETIME;
+                arg = "60";
             }
         }
     }

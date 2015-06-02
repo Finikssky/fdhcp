@@ -169,11 +169,13 @@ ScreenView
         ListView
         {
             id: configure_view_interfaces_list_listview
-            anchors.fill: parent
+            width: configureview.main_view_block.width
+            height: configureview.main_view_block.height
             orientation: ListView.Vertical
             cacheBuffer: 2000
             snapMode: ListView.SnapToItem
             highlightRangeMode: ListView.ApplyRange
+            clip: true
 
             delegate: InterfaceConfigBlock
                       {

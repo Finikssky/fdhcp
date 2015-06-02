@@ -10,6 +10,7 @@ Rectangle
     property alias textcolor: _text.color
     property alias textHAlign: _text.horizontalAlignment
     property alias textVAlign: _text.verticalAlignment
+    property alias wrapMode: _text.wrapMode
 
     Text
     {
@@ -18,6 +19,7 @@ Rectangle
         verticalAlignment: Text.AlignVCenter
         horizontalAlignment: Text.AlignHCenter
         anchors.margins: textfield.height / 5;
+        wrapMode: Text.NoWrap
 
         text: ""
     }

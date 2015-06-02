@@ -177,68 +177,134 @@ ListView
                  id: _subnet_hoverblock_component
 
                  Rectangle {
-                    height: ars.height + dnss.height
-                    property string strcolor: "#2f0000cf"
+                    height: ars.height + dnss.height + routers.height + domain_name.height + lease_time.height
+                    property string strcolor: "#2f00cf00"
 
-                 InterfaceConfigARBlock
-                 {
-                     id: ars
-                     color: parent.strcolor
-                     header_height: _subnet_header_block.height * 2
-                     header_width: _subnet_header_block.width
-                     subnet_name: _subnet_prefix.text
-
-                     Connections
-                     {
-                         target: _subnet_hoverblock
-                         onLoaded:
-                         {
-                             if (_subnet_hoverblock.sourceComponent != undefined)
-                                ars.update_config();
-                         }
-                     }
-
-                     function update_config()
-                     {
-                         var ars_str_list = dctp_iface.getSubnetProperty(interface_block.name, _subnet_prefix.text, "range");
-                         console.log("ARS: ", ars_str_list);
-                         for (var i = 0; i < ars_str_list.length; i++)
-                         {
-                             var ARS = ars_str_list[i].split('-');
-                             model.append({SA: ARS[0], EA: ARS[1] })
-                         }
-                     }
-                 }
-
-                 InterfaceConfig_DNSBlock
-                 {
-                        id: dnss
-                        color: parent.strcolor
-                        header_height: _subnet_header_block.height * 2
-                        header_width: _subnet_header_block.width
-                        subnet_name: _subnet_prefix.text
-                        anchors.top: ars.bottom
-
-                        Connections
+                        SubnetOption_2STR
                         {
-                            target: _subnet_hoverblock
-                            onLoaded:
+                            id: ars
+                            color: parent.strcolor
+                            header_height: _subnet_header_block.height * 2
+                            header_width: _subnet_header_block.width
+                            header_text: "Диапазоны адресов:"
+                            max_elements: 1000
+                            max_1length: 16
+                            subnet_name: _subnet_prefix.text
+                            opt_name: "range"
+                            opt_1type: "IP"
+                            divider: "-"
+                            anchors.top: parent.top
+
+                            Connections
                             {
-                                if (_subnet_hoverblock.sourceComponent != undefined)
-                                   dnss.update_config();
+                                target: _subnet_hoverblock
+                                onLoaded:
+                                {
+                                    if (_subnet_hoverblock.sourceComponent != undefined)
+                                       ars.update_config();
+                                }
                             }
                         }
 
-                        function update_config()
+                        SubnetOption_STR
                         {
-                            var dnss_str_list = dctp_iface.getSubnetProperty(interface_block.name, _subnet_prefix.text, "dns-server");
-                            console.log("DNSS: ", dnss_str_list);
-                            for (var i = 0; i < dnss_str_list.length; i++)
+                            id: dnss
+                            color: parent.strcolor
+                            header_height: _subnet_header_block.height * 2
+                            header_width: _subnet_header_block.width
+                            header_text: "Адреса серверов DNS:"
+                            max_elements: 3
+                            max_length: 16
+                            subnet_name: _subnet_prefix.text
+                            opt_name: "dns-server"
+                            opt_type: "IP"
+                            anchors.top: ars.bottom
+
+                            Connections
                             {
-                                model.append({DA: dnss_str_list[i]})
+                                target: _subnet_hoverblock
+                                onLoaded:
+                                {
+                                    if (_subnet_hoverblock.sourceComponent != undefined)
+                                       dnss.update_config();
+                                }
                             }
                         }
-                 }
+
+                        SubnetOption_STR
+                        {
+                            id: routers
+                            color: parent.strcolor
+                            header_height: _subnet_header_block.height * 2
+                            header_width: _subnet_header_block.width
+                            header_text: "Адрес шлюза:"
+                            max_elements: 1
+                            max_length: 16
+                            subnet_name: _subnet_prefix.text
+                            opt_name: "router"
+                            opt_type: "IP"
+                            anchors.top: dnss.bottom
+
+                            Connections
+                            {
+                                target: _subnet_hoverblock
+                                onLoaded:
+                                {
+                                    if (_subnet_hoverblock.sourceComponent != undefined)
+                                       routers.update_config();
+                                }
+                            }
+                        }
+
+                        SubnetOption_STR
+                        {
+                            id: domain_name
+                            color: parent.strcolor
+                            header_height: _subnet_header_block.height * 2
+                            header_width: _subnet_header_block.width
+                            header_text: "Домен:"
+                            max_elements: 1
+                            max_length: 32;
+                            subnet_name: _subnet_prefix.text
+                            opt_name: "domain_name"
+                            opt_type: "WORD"
+                            anchors.top: routers.bottom
+
+                            Connections
+                            {
+                                target: _subnet_hoverblock
+                                onLoaded:
+                                {
+                                    if (_subnet_hoverblock.sourceComponent != undefined)
+                                       domain_name.update_config();
+                                }
+                            }
+                        }
+
+                        SubnetOption_STR
+                        {
+                            id: lease_time
+                            color: parent.strcolor
+                            header_height: _subnet_header_block.height * 2
+                            header_width: _subnet_header_block.width
+                            header_text: "Время аренды:"
+                            max_elements: 1
+                            max_length: 8;
+                            subnet_name: _subnet_prefix.text
+                            opt_name: "lease_time"
+                            opt_type: "INT"
+                            anchors.top: domain_name.bottom
+
+                            Connections
+                            {
+                                target: _subnet_hoverblock
+                                onLoaded:
+                                {
+                                    if (_subnet_hoverblock.sourceComponent != undefined)
+                                       lease_time.update_config();
+                                }
+                            }
+                        }
 
                  }
             }

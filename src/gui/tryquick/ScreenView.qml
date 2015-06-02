@@ -76,6 +76,7 @@ Rectangle
 
            color: parent.color
            textcolor: "yellow"
+           wrapMode: Text.WordWrap
 
            text: "Errors here"
 
