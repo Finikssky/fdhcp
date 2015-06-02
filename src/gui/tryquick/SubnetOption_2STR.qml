@@ -103,6 +103,7 @@ ListView
                 height: parent.height * 9/10
 
                 color: parent.color
+                bkcolor: "transparent"
                 textcolor: "yellow"
                 text: divider
             }

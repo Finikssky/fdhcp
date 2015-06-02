@@ -51,7 +51,7 @@ ListView
 
                     onButtonClick:
                     {
-                        _s_opt_str_list_model.append({DA: ""});
+                        _s_opt_str_list_model.append({STR: ""});
                     }
                 }
             }
@@ -121,7 +121,7 @@ ListView
                         if (_s_opt_str_delegate.old_string.length > 0)
                            dctp_iface.tryChSubnetProperty("del", interface_block.name, _s_opt_str_list.subnet_name, _s_opt_str_list.opt_name, _s_opt_str_delegate.old_string);
 
-                        if (_s_opt_str_delegate.new_string.length > 1)
+                        if (_s_opt_str_delegate.new_string.length > 0)
                            dctp_iface.tryChSubnetProperty("add", interface_block.name, _s_opt_str_list.subnet_name, _s_opt_str_list.opt_name, _s_opt_str_delegate.new_string);
 
                         _s_opt_str_delegate.old_string = _s_opt_str_delegate.new_string;
@@ -160,7 +160,7 @@ ListView
             if (type === "IP")
                 regexp = /((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)/;
             else if (type == "INT")
-                regexp = /\d/;
+                regexp = /(\d){6}/;
             else
                 regexp = undefined;
 

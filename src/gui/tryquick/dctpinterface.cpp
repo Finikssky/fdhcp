@@ -180,6 +180,19 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
     subnet = subnet.replace("  ", " ").replace("\n", "").trimmed();
     arg = arg.replace("  ", " ").replace("\n", "").trimmed();
 
+    QStringList chain;
+    chain.append("interface");
+    chain.append(iface);
+    chain.append("subnet");
+    chain.append(subnet);
+    chain.append("opt");
+    chain.append(option);
+    chain.append("opt_work");
+    chain.append(work);
+    chain.append("args");
+    chain.append(arg);
+
+
     if (_module == "server")
     {
         if (work == "add")
@@ -248,7 +261,10 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
 
     int rc = send_DCTP_COMMAND(socket, command, _module_ip.toUtf8().data(), _module == "server" ? DSR_DCTP_PORT : DCL_DCTP_PORT, _last_error);
 
-    if (rc == -1) emit lastErrorChanged();
+    if (rc == -1)
+        emit lastErrorChanged();
+    else
+        updateLocalConfig(chain);
 }
 
 void DCTPinterface::doInThread(QString fname)
@@ -278,8 +294,32 @@ QStringList DCTPinterface::getFullConfig()
     {
          ret.append(f.readLine(512).replace("\n", "").replace("  ", " "));
     }
+    f.close();
 
+    //qDebug() << ret;
     return ret;
+}
+
+void DCTPinterface::setFullConfig(QStringList in)
+{
+    QFile f(TMP_CONFIG_FILE);
+
+    if (f.exists())
+    {
+        if (!f.open(QIODevice::WriteOnly))
+        {
+            qDebug() << "Ошибка открытия для записи";
+        }
+    }
+
+    for (int i = 0; i < in.length(); i++)
+    {
+        QString str = in[i] + "\n";
+        QByteArray raw = str.toUtf8();
+        f.write(raw, raw.length());
+    }
+
+    f.close();
 }
 
 QStringList DCTPinterface::getIfacesList()
@@ -385,7 +425,6 @@ QStringList DCTPinterface::getSubnets(QString name)
     return ret;
 }
 
-
 QStringList DCTPinterface::getSubnetProperty(QString if_name, QString sub_name, QString property_name)
 {
     QStringList sub_config = getSubnetConfig(if_name, sub_name);
@@ -404,5 +443,76 @@ QStringList DCTPinterface::getSubnetProperty(QString if_name, QString sub_name, 
 
     return ret;
 }
+
+void DCTPinterface::updateLocalConfig(QStringList chain)
+{
+    QStringList old_config = getFullConfig();
+    QStringList new_config;
+
+    int found_iface = 0;
+    int found_subnet = 0;
+
+    int idx = 1;
+    QString iface;
+    QString subnet;
+    QString opt;
+    QString opt_work;
+    QString args;
+    if (chain.contains("interface")) { iface = chain[idx]; idx+=2; }
+    if (chain.contains("subnet")) { subnet = chain[idx]; idx+=2; }
+    if (chain.contains("opt")) { opt = chain[idx]; idx += 2;}
+    if (chain.contains("opt_work")) { opt_work = chain[idx]; idx+=2; }
+    if (chain.contains("args")) { args = chain[idx]; }
+
+    qDebug() << "chain=" << chain;
+    qDebug() << "values=" << iface << "," << subnet << "," << opt << "," << opt_work << "," << args;
+
+    int done = 0;
+
+    for (int i = 0; i < old_config.length(); i++)
+    {
+        QString str = old_config[i];
+        QString left;
+        QString right;
+        if (str.contains(":"))
+        {
+            left = str.section(':', 0, 0).trimmed();
+            right = str.section(':', 1).trimmed();
+        }
+        else
+            left = str.trimmed();
+
+      //  qDebug() << "left: " << left << " right:" << right;
+
+        if (left == "interface" && right == iface) found_iface = 1;
+        if (left == "end_interface" && found_iface == 1) found_iface = 0;
+
+        if (left == "subnet" && right == subnet && found_iface == 1) found_subnet = 1;
+        if (left == "end_subnet" && found_subnet == 1) found_subnet = 0;
+
+        if (found_subnet == 1)
+        {
+            if (opt_work == "del" && left.contains(opt) && right == args && done == 0)
+            {
+                done = 1;
+                continue;
+            }
+            if (opt_work == "add" && done == 0)
+            {
+                done = 1;
+                QString add = opt + ": " + args;
+                new_config.append(str);
+                new_config.append(add);
+                continue;
+            }
+        }
+
+        new_config.append(str);
+    }
+
+    //qDebug() << new_config;
+    setFullConfig(new_config);
+}
+
 
 

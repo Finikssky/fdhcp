@@ -74,6 +74,7 @@ public slots:
     int tryChangeInterfaceState(QString, QString);
 
     QStringList getFullConfig();
+    void setFullConfig(QStringList);
 
     QStringList getIfacesList();
     QStringList getIfaceConfig(QString);
@@ -82,6 +83,8 @@ public slots:
     QStringList getSubnets(QString);
     QStringList getSubnetConfig(QString, QString);
     QStringList getSubnetProperty(QString, QString, QString);
+
+    void updateLocalConfig(QStringList chain);
 
     void doInThread(QString);
 

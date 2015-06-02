@@ -22,7 +22,7 @@ ListView
                 height: header_height
                 width: header_width
 
-                color: _subnets_list.color
+                color: "transparent"
                 textcolor: "yellow"
                 text: "Подсети интерфейса:"
                 textHAlign: Text.AlignLeft
@@ -72,7 +72,7 @@ ListView
                     PropertyChanges {target: _subnet_hoverblock; sourceComponent: _subnet_hoverblock_component; }
                     //PropertyChanges {target: down_button; text: "-"}
                     PropertyChanges {target: slv_delegate_obj; height: _subnet_header_block.height + _subnet_hoverblock.height }
-                    PropertyChanges {target: slv_delegate_obj; color: "#2f0000cf"; }
+                    PropertyChanges {target: slv_delegate_obj; color: "#2f00cf00"; }
                 }
             ]
 
