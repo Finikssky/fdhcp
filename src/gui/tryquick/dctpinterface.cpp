@@ -374,7 +374,11 @@ QStringList DCTPinterface::getIfaceConfig(QString name)
               while (1)
               {
                   QString iface_line = config[i];
-                  if (iface_line.contains("end_interface")) return ret;
+                  if (iface_line.contains("end_interface"))
+                  {
+                      ret.append(iface_line);
+                      return ret;
+                  }
 
                   ret.append(iface_line);
                   i++;
@@ -411,7 +415,11 @@ QStringList DCTPinterface::getSubnetConfig(QString if_name, QString sub_name)
               while (1)
               {
                   QString subnet_line = if_config[i];
-                  if (subnet_line.contains("end_subnet")) return ret;
+                  if (subnet_line.contains("end_subnet"))
+                  {
+                      ret.append(subnet_line);
+                      return ret;
+                  }
 
                   ret.append(subnet_line);
                   i++;
@@ -486,45 +494,59 @@ void DCTPinterface::updateLocalConfig(QStringList chain)
     {
         QStringList iface_config = getIfaceConfig(ifaces[if_idx]);
         if (ifaces[if_idx] != iface)
-            new_config.append(iface_config);
+            new_config += iface_config;
         else
         {
-            new_config.append(("interface: " + iface));
-            new_config.append(getIfaceState(iface) == "off" ? "  disable" : "    enable");
+            new_config += "interface: " + iface;
+            new_config += getIfaceState(iface) == "off" ? "  disable" : "    enable";
 
             QStringList subnets = getSubnets(iface);
             for (int sub_idx = 0; sub_idx < subnets.length(); sub_idx++)
             {
                 QStringList subnet_config = getSubnetConfig(iface, subnets[sub_idx]);
                 if (subnets[sub_idx] != subnet)
-                    new_config.append(subnet_config);
+                    new_config += subnet_config;
                 else
                 {
-                    if (opt_work == "del" && opt == "") continue;
+                    if (opt_work == "del" && opt == "name") continue;
 
-                    new_config.append(("    subnet: " + subnet));
+                    new_config += "    subnet: " + subnet;
                     for (int opt_idx = 1; opt_idx < (subnet_config.length() - 1); opt_idx++)
                     {
-                        if (subnet_config[opt_idx].contains(opt) && subnet_config[opt_idx].contains(args) && opt_work == "del") continue;
-                        new_config.append(subnet_config[opt_idx]);
+                        if (subnet_config[opt_idx].contains(opt) && subnet_config[opt_idx].contains(args) && opt_work == "del")
+                        {
+
+                            continue;
+                        }
+
+                        new_config += subnet_config[opt_idx];
                     }
-                    if (opt_work == "add") new_config.append(("     " + opt + ": " + args));
-                    new_config.append(("    end_subnet"));
+
+                    if (opt_work == "add")
+                    {
+                        QString new_opt = QString("     " + opt + ": " + args);
+                        qDebug() << new_opt;
+                        new_config += new_opt;
+                    }
+                    new_config += "    end_subnet";
                 }
             }
 
-            if (opt_work == "add" && opt == "" && subnet != "")
+            if (opt_work == "add" && opt == "name" && subnet != "")
             {
-                new_config.append(("    subnet: " + subnet));
-                new_config.append(("    end_subnet"));
+                new_config += "    subnet: " + subnet;
+                new_config += "    end_subnet";
             }
 
-            new_config.append("end_interface");
+            new_config += "end_interface";
         }
     }
 
-    qDebug() << new_config;
-    m_local_config = new_config;
+    for (int i = 0; i < new_config.length(); i++)
+    {
+        qDebug()<< new_config[i];
+    }
+    setLocal_config(new_config);
     setFullConfig(new_config);
 }
 

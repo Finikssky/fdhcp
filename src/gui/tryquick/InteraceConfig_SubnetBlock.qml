@@ -87,11 +87,11 @@ ListView
                 SButton
                 {
                     id: _subnet_sd_bt
-                    text: old_prefix != new_prefix ? "save" : "del"
-                    color: "blue"
-                    textcolor: "yellow"
-                    height: parent.height * 0.7
-                    width: height * 2
+                    bk_image: old_prefix != new_prefix ? "" : "qrc:/images/delete.png"
+                    br_image: ""
+                    property string mode: old_prefix != new_prefix ? "save" : "del"
+                    height: parent.height
+                    width: height
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: parent.width/20
@@ -99,7 +99,7 @@ ListView
                     onButtonClick:
                     {
                         console.log("ind:", parent.parent.idx);
-                        if (text == "save")
+                        if (mode == "save")
                         {
                             if (slv_delegate_obj.old_prefix.length > 1)
                                dctp_iface.tryChSubnetProperty("del", interface_block.name, slv_delegate_obj.old_prefix, "name", "");
@@ -142,24 +142,28 @@ ListView
                 SButton
                 {
                     id: _subnet_hover_bt
-                    text: "edit"
+                    bk_image: "qrc:/images/gear3.png"
+                    br_image: ""
                     textcolor: "yellow"
                     height: parent.height * 0.7
-                    width: height * 2
+                    width: height
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.right: parent.right
                     anchors.rightMargin: parent.width/20
 
                     onButtonClick:
                     {
-                        if (_subnet_sd_bt.text == "del" && _subnet_prefix.text.length > 15)
+                        if (_subnet_sd_bt.mode == "del" && _subnet_prefix.text.length > 15)
                         {
                             _subnets_list.currentIndex = _subnets_list.indexAt(slv_delegate_obj.x, slv_delegate_obj.y)
                             if (slv_delegate_obj.state == "hovered")
                                 slv_delegate_obj.state = "unhovered"
                             else
                                 slv_delegate_obj.state = "hovered"
+
+                            rotation_start()
                         }
+
                     }
                 }
             }

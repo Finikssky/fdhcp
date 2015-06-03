@@ -140,9 +140,9 @@ ListView
             SButton
             {
                 id: _s_opt_2str_sdel_bt
-                color: "blue"
-                textcolor: "yellow"
-                text: parent.old_string != parent.new_string ? "save" : "del"
+                bk_image: parent.old_string != parent.new_string ? "" : "qrc:/images/delete.png"
+                br_image: ""
+                property string mode: parent.old_string != parent.new_string ? "save" : "del"
 
                 height: parent.height * 0.7
                 width: height
@@ -156,7 +156,7 @@ ListView
                 onButtonClick:
                 {
                     console.log("ind:", _s_opt_2str_delegate.idx);
-                    if (text == "save")
+                    if (mode == "save")
                     {
                         if (_s_opt_2str_1.text.length == 0)
                         {

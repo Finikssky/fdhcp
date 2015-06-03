@@ -19,5 +19,8 @@
         <file>ramka.png</file>
         <file>plate.png</file>
         <file>rad.png</file>
+        <file>gear3.png</file>
+        <file>arrow_down.png</file>
+        <file>delete.png</file>
     </qresource>
 </RCC>

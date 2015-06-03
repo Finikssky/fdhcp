@@ -13,12 +13,25 @@ Rectangle
           State {
               name: "hovered"
               PropertyChanges {target: hoverblock; sourceComponent: undefined; }
-              PropertyChanges {target: down_button; text: "+"}
+              PropertyChanges {target: down_button; rotation: 0 }
           },
           State {
               name: "unhovered"
               PropertyChanges {target: hoverblock; sourceComponent: hoverblock_component; }
-              PropertyChanges {target: down_button; text: "-"}
+              PropertyChanges {target: down_button; rotation: 180}
+          }
+      ]
+
+      transitions: [
+          Transition {
+              from: "hovered"
+              to: "unhovered"
+              RotationAnimation { running: true; property: "rotation"; target: down_button; from: 0; to: 180; duration: 100; }
+          },
+          Transition {
+              from: "unhovered"
+              to: "hovered"
+              RotationAnimation { running: true; property: "rotation"; target: down_button; from: 180; to: 0; duration: 100; }
           }
       ]
 
@@ -31,15 +44,16 @@ Rectangle
           SButton
           {
               id: down_button
-              width: parent.height * 0.5
+              width: parent.height * 0.8
               height: width
               color: parent.color
 
               anchors.right: parent.right
               anchors.rightMargin: parent.width/20
               anchors.verticalCenter: parent.verticalCenter
+              br_image: ""
+              bk_image: "qrc:/images/arrow_down.png"
 
-              text: "+"
               textcolor: "yellow"
 
               onButtonClick:
