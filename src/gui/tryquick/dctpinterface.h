@@ -15,6 +15,7 @@ class DCTPinterface : public QObject
     Q_PROPERTY(QString module_ip READ getModuleIp WRITE setModuleIp NOTIFY moduleIpChanged)
     Q_PROPERTY(QString password READ getPassword WRITE setPassword NOTIFY passwordChanged)
     Q_PROPERTY(QString last_error READ getLastError WRITE setLastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(QStringList local_config READ getLocal_config WRITE setLocal_config NOTIFY local_configChanged)
 
 public:
     typedef void (DCTPinterface::*DCTPinterfaceFunction) (void);
@@ -53,6 +54,8 @@ signals:
     void configUpdate(QString status);
     void ifaceChangeStateFail(QString signal_arg1);
 
+    void local_configChanged(QStringList arg);
+
 public slots:
     QString getModule();
     void setModule(QString);
@@ -65,6 +68,9 @@ public slots:
 
     QString getLastError();
     void setLastError(QString);
+
+    QStringList getLocal_config();
+    void setLocal_config(QStringList);
 
     void tryConnect();
     void tryAccess();
@@ -94,6 +100,7 @@ private:
     QString _password;
     char _last_error[DCTP_ERROR_DESC_SIZE];
     int socket;
+    QStringList m_local_config;
 };
 
 #endif // DCTPINTERFACE_H

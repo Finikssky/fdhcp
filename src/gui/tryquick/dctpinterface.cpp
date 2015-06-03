@@ -10,6 +10,7 @@
 
 DCTPinterface::DCTPinterface(QObject *parent) : QObject(parent)
 {
+    m_local_config.clear();
     socket = init_DCTP_socket(rand()%65534);
     if (socket == -1) exit(1);
 }
@@ -17,6 +18,20 @@ DCTPinterface::DCTPinterface(QObject *parent) : QObject(parent)
 DCTPinterface::~DCTPinterface()
 {
     release_DCTP_socket(socket);
+}
+
+QStringList DCTPinterface::getLocal_config()
+{
+    return m_local_config;
+}
+
+void DCTPinterface::setLocal_config(QStringList arg)
+{
+    if (m_local_config == arg)
+        return;
+
+    m_local_config = arg;
+    emit local_configChanged(arg);
 }
 
 QString DCTPinterface::getModule()
@@ -280,8 +295,11 @@ void DCTPinterface::doInThread(QString fname)
 
 QStringList DCTPinterface::getFullConfig()
 {
+    if (m_local_config.count() != 0) return m_local_config;
+
+    m_local_config.clear();
+
     QFile f(TMP_CONFIG_FILE);
-    QStringList ret;
 
     if (f.exists())
     {
@@ -292,12 +310,12 @@ QStringList DCTPinterface::getFullConfig()
     }
     while (!f.atEnd())
     {
-         ret.append(f.readLine(512).replace("\n", "").replace("  ", " "));
+         m_local_config.append(f.readLine(512).replace("\n", "").replace("  ", " "));
     }
     f.close();
 
     //qDebug() << ret;
-    return ret;
+    return m_local_config;
 }
 
 void DCTPinterface::setFullConfig(QStringList in)
@@ -446,11 +464,7 @@ QStringList DCTPinterface::getSubnetProperty(QString if_name, QString sub_name, 
 
 void DCTPinterface::updateLocalConfig(QStringList chain)
 {
-    QStringList old_config = getFullConfig();
     QStringList new_config;
-
-    int found_iface = 0;
-    int found_subnet = 0;
 
     int idx = 1;
     QString iface;
@@ -467,50 +481,50 @@ void DCTPinterface::updateLocalConfig(QStringList chain)
     qDebug() << "chain=" << chain;
     qDebug() << "values=" << iface << "," << subnet << "," << opt << "," << opt_work << "," << args;
 
-    int done = 0;
-
-    for (int i = 0; i < old_config.length(); i++)
+    QStringList ifaces = getIfacesList();
+    for (int if_idx = 0; if_idx < ifaces.length(); if_idx++)
     {
-        QString str = old_config[i];
-        QString left;
-        QString right;
-        if (str.contains(":"))
-        {
-            left = str.section(':', 0, 0).trimmed();
-            right = str.section(':', 1).trimmed();
-        }
+        QStringList iface_config = getIfaceConfig(ifaces[if_idx]);
+        if (ifaces[if_idx] != iface)
+            new_config.append(iface_config);
         else
-            left = str.trimmed();
-
-      //  qDebug() << "left: " << left << " right:" << right;
-
-        if (left == "interface" && right == iface) found_iface = 1;
-        if (left == "end_interface" && found_iface == 1) found_iface = 0;
-
-        if (left == "subnet" && right == subnet && found_iface == 1) found_subnet = 1;
-        if (left == "end_subnet" && found_subnet == 1) found_subnet = 0;
-
-        if (found_subnet == 1)
         {
-            if (opt_work == "del" && left.contains(opt) && right == args && done == 0)
-            {
-                done = 1;
-                continue;
-            }
-            if (opt_work == "add" && done == 0)
-            {
-                done = 1;
-                QString add = opt + ": " + args;
-                new_config.append(str);
-                new_config.append(add);
-                continue;
-            }
-        }
+            new_config.append(("interface: " + iface));
+            new_config.append(getIfaceState(iface) == "off" ? "  disable" : "    enable");
 
-        new_config.append(str);
+            QStringList subnets = getSubnets(iface);
+            for (int sub_idx = 0; sub_idx < subnets.length(); sub_idx++)
+            {
+                QStringList subnet_config = getSubnetConfig(iface, subnets[sub_idx]);
+                if (subnets[sub_idx] != subnet)
+                    new_config.append(subnet_config);
+                else
+                {
+                    if (opt_work == "del" && opt == "") continue;
+
+                    new_config.append(("    subnet: " + subnet));
+                    for (int opt_idx = 1; opt_idx < (subnet_config.length() - 1); opt_idx++)
+                    {
+                        if (subnet_config[opt_idx].contains(opt) && subnet_config[opt_idx].contains(args) && opt_work == "del") continue;
+                        new_config.append(subnet_config[opt_idx]);
+                    }
+                    if (opt_work == "add") new_config.append(("     " + opt + ": " + args));
+                    new_config.append(("    end_subnet"));
+                }
+            }
+
+            if (opt_work == "add" && opt == "" && subnet != "")
+            {
+                new_config.append(("    subnet: " + subnet));
+                new_config.append(("    end_subnet"));
+            }
+
+            new_config.append("end_interface");
+        }
     }
 
-    //qDebug() << new_config;
+    qDebug() << new_config;
+    m_local_config = new_config;
     setFullConfig(new_config);
 }
 
