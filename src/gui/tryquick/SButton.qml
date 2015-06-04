@@ -21,12 +21,13 @@ Rectangle
         RotationAnimation {
             id: rot_anim
             target: bk_image
-            duration: 300
+            duration: 2000
             loops: Animation.Infinite
             running: false
             direction: RotationAnimation.Clockwise
             from: 0
             to: 360
+            property: "rotation"
         }
     }
 

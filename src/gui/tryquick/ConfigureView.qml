@@ -190,8 +190,10 @@ ScreenView
                         header.textcolor: "yellow"
                         header.anchors.margins: 2
 
-                        border { color: "red"; width: 1 }
-                      }
+                        border.color: "black"
+                        border.width: 2;
+
+                        }
 
             model: ListModel
                    {

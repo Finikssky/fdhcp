@@ -37,20 +37,29 @@ ListView
                 textcolor: "yellow"
                 text: header_text
                 textHAlign: Text.AlignLeft
+            }
+        }
+
+        footer: Component
+        {
+            Rectangle
+            {
+                height: header_height / 2
+                width: header_width
+                color: _s_opt_2str_list.color
 
                 SButton
                 {
-                    id: add_button
-                    width: parent.height * 0.5
+                    id: _s_opt_2str_add_button
+                    width: parent.height * 0.8
                     height: width
+                    color: "transparent"
+                    br_image: ""
+                    bk_image: "qrc:/images/delete.png"
+                    rotation: 45
 
-                    anchors.right: parent.right
-                    anchors.rightMargin: parent.width/20
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    text: "+"
-                    textcolor: "yellow"
-                    visible: _s_opt_2str_list.count < max_elements;
+                    anchors.centerIn: parent
+                    visible: (_s_opt_2str_list.count < _s_opt_2str_list.max_elements)
 
                     onButtonClick:
                     {
@@ -140,7 +149,7 @@ ListView
             SButton
             {
                 id: _s_opt_2str_sdel_bt
-                bk_image: parent.old_string != parent.new_string ? "" : "qrc:/images/delete.png"
+                bk_image: parent.old_string != parent.new_string ? "qrc:/images/save.png" : "qrc:/images/delete.png"
                 br_image: ""
                 property string mode: parent.old_string != parent.new_string ? "save" : "del"
 
@@ -156,6 +165,7 @@ ListView
                 onButtonClick:
                 {
                     console.log("ind:", _s_opt_2str_delegate.idx);
+                    var rc;
                     if (mode == "save")
                     {
                         if (_s_opt_2str_1.text.length == 0)
@@ -171,17 +181,31 @@ ListView
                         }
 
                         if (_s_opt_2str_delegate.old_string.length > divider.length)
-                           dctp_iface.tryChSubnetProperty("del", interface_block.name, _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.old_string);
-
+                        {
+                           rc = dctp_iface.tryChSubnetProperty("del", interface_block.name, _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.old_string);
+                           if (rc == -1) return;
+                        }
                         if (_s_opt_2str_delegate.new_string.length > divider.length)
-                           dctp_iface.tryChSubnetProperty("add", interface_block.name, _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.new_string);
+                        {
+                            rc = dctp_iface.tryChSubnetProperty("add", interface_block.name, _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.new_string);
+                            if (rc == -1)
+                            {
+                                if (_s_opt_2str_delegate.old_string.length > divider.length)
+                                    dctp_iface.tryChSubnetProperty("add", interface_block.name, _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.old_string);
 
+                                return;
+                            }
+                        }
                         _s_opt_2str_delegate.old_string = _s_opt_2str_delegate.new_string;
                     }
                     else
                     {
                         if (_s_opt_2str_delegate.new_string.length > divider.length)
-                            dctp_iface.tryChSubnetProperty("del", interface_block.name,  _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.new_string);
+                        {
+                            rc = dctp_iface.tryChSubnetProperty("del", interface_block.name,  _s_opt_2str_list.subnet_name, _s_opt_2str_list.opt_name, _s_opt_2str_delegate.new_string);
+                            if (rc == -1)
+                                return;
+                        }
                         _s_opt_2str_list_model.remove(_s_opt_2str_delegate.idx);
                     }
 

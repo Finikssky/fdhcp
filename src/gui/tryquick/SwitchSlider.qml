@@ -21,6 +21,13 @@ Rectangle
           anchors.left: parent.left
           state: "off"
 
+          Image
+          {
+              anchors.fill: parent;
+              source: "qrc:/images/rad2.png"
+              z: 1
+          }
+
           states: [
               State {
                   name: "off"

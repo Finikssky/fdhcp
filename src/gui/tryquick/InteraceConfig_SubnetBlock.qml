@@ -26,20 +26,28 @@ ListView
                 textcolor: "yellow"
                 text: "Подсети интерфейса:"
                 textHAlign: Text.AlignLeft
+            }
+        }
+
+        footer: Component
+        {
+            Rectangle
+            {
+                height: header_height / 2
+                width: header_width
+                color: "transparent"
 
                 SButton
                 {
                     id: add_button
-                    width: parent.height * 0.5
+                    width: parent.height * 0.8
                     height: width
                     color: parent.color
+                    br_image: ""
+                    bk_image: "qrc:/images/delete.png"
+                    rotation: 45
 
-                    anchors.right: parent.right
-                    anchors.rightMargin: parent.width/20
-                    anchors.verticalCenter: parent.verticalCenter
-
-                    text: "+"
-                    textcolor: "yellow"
+                    anchors.centerIn: parent
 
                     onButtonClick:
                     {
@@ -64,13 +72,11 @@ ListView
                 State {
                     name: "hovered"
                     PropertyChanges {target: _subnet_hoverblock; sourceComponent: undefined; }
-                    //PropertyChanges {target: down_button; text: "+"}
                     PropertyChanges {target: slv_delegate_obj; height: _subnet_header_block.height }
                 },
                 State {
                     name: "unhovered"
                     PropertyChanges {target: _subnet_hoverblock; sourceComponent: _subnet_hoverblock_component; }
-                    //PropertyChanges {target: down_button; text: "-"}
                     PropertyChanges {target: slv_delegate_obj; height: _subnet_header_block.height + _subnet_hoverblock.height }
                     PropertyChanges {target: slv_delegate_obj; color: "#2f00cf00"; }
                 }
@@ -87,7 +93,7 @@ ListView
                 SButton
                 {
                     id: _subnet_sd_bt
-                    bk_image: old_prefix != new_prefix ? "" : "qrc:/images/delete.png"
+                    bk_image: old_prefix != new_prefix ? "qrc:/images/save.png" : "qrc:/images/delete.png"
                     br_image: ""
                     property string mode: old_prefix != new_prefix ? "save" : "del"
                     height: parent.height
@@ -99,18 +105,27 @@ ListView
                     onButtonClick:
                     {
                         console.log("ind:", parent.parent.idx);
+                        var rc;
                         if (mode == "save")
                         {
                             if (slv_delegate_obj.old_prefix.length > 1)
-                               dctp_iface.tryChSubnetProperty("del", interface_block.name, slv_delegate_obj.old_prefix, "name", "");
-                            dctp_iface.tryChSubnetProperty("add", interface_block.name, slv_delegate_obj.new_prefix, "name", "");
+                            {
+                               rc = dctp_iface.tryChSubnetProperty("del", interface_block.name, slv_delegate_obj.old_prefix, "name", "");
+                               if (rc == -1) return;
+                            }
+
+                            rc = dctp_iface.tryChSubnetProperty("add", interface_block.name, slv_delegate_obj.new_prefix, "name", "");
+                            if (rc == -1) return;
 
                             slv_delegate_obj.old_prefix = slv_delegate_obj.new_prefix;
                         }
                         else
                         {
                             if (slv_delegate_obj.new_prefix.length > 1)
-                                dctp_iface.tryChSubnetProperty("del", interface_block.name, slv_delegate_obj.new_prefix, "name", "");
+                            {
+                                rc = dctp_iface.tryChSubnetProperty("del", interface_block.name, slv_delegate_obj.new_prefix, "name", "");
+                                if (rc == -1) return;
+                            }
                             _subnets_list_model.remove(slv_delegate_obj.idx);
                         }
 
@@ -157,12 +172,17 @@ ListView
                         {
                             _subnets_list.currentIndex = _subnets_list.indexAt(slv_delegate_obj.x, slv_delegate_obj.y)
                             if (slv_delegate_obj.state == "hovered")
+                            {
                                 slv_delegate_obj.state = "unhovered"
+                                rotation_start();
+                            }
                             else
+                            {
                                 slv_delegate_obj.state = "hovered"
-
-                            rotation_start()
+                                rotation_stop();
+                            }
                         }
+
 
                     }
                 }

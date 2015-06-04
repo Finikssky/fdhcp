@@ -79,7 +79,7 @@ Rectangle
 
               onSwitchOn:
               {
-                  switch_color = "lime";
+                  switch_color = "#00ab1c";
               }
               onSwitchOff:
               {

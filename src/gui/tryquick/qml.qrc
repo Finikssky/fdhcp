@@ -22,5 +22,8 @@
         <file>gear3.png</file>
         <file>arrow_down.png</file>
         <file>delete.png</file>
+        <file>save.png</file>
+        <file>home.png</file>
+        <file>rad2.png</file>
     </qresource>
 </RCC>

@@ -29,6 +29,8 @@ Window
             color: "transparent";
             anchors.fill: parent
             opacity: 1
+            have_back: false
+            have_home: false
             Connections {
                 target: dctp_iface
                 onLastErrorChanged: startview.error_text = dctp_iface.last_error
@@ -43,6 +45,8 @@ Window
             onPressBack: mainwin_fsm.state = "STARTVIEW"
             onPressHome: mainwin_fsm.state = "STARTVIEW"
 
+            have_back: true
+            have_home: true
             Connections {
                 target: dctp_iface
                 onLastErrorChanged: destview.error_text = dctp_iface.last_error
@@ -54,6 +58,9 @@ Window
             id: configureview
             color: "transparent";
             anchors.fill: parent
+
+            have_back: true
+            have_home: true
 
             onPressBack: mainwin_fsm.state = "DESTVIEW"
             onPressHome: mainwin_fsm.state = "STARTVIEW"

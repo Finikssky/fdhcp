@@ -123,7 +123,7 @@ void DCTPinterface::tryUpdateConfig()
         emit this->configUpdate("fail");
         emit this->lastErrorChanged();
     }
-
+    m_local_config.clear();
 }
 
 void DCTPinterface::tryAccess()
@@ -187,7 +187,7 @@ int DCTPinterface::tryChangeInterfaceState(QString name, QString state)
     return rc;
 }
 
-void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString subnet, QString option, QString arg)
+int DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString subnet, QString option, QString arg)
 {
     DCTP_COMMAND command;
     memset(&command, 0, sizeof(DCTP_COMMAND));
@@ -280,6 +280,8 @@ void DCTPinterface::tryChSubnetProperty(QString work, QString iface, QString sub
         emit lastErrorChanged();
     else
         updateLocalConfig(chain);
+
+    return rc;
 }
 
 void DCTPinterface::doInThread(QString fname)
@@ -392,6 +394,7 @@ QStringList DCTPinterface::getIfaceConfig(QString name)
 QString DCTPinterface::getIfaceState(QString name)
 {
     QStringList if_config = getIfaceConfig(name);
+    qDebug() << if_config;
     for (int i = 0; i < if_config.count(); i++)
     {
         if (if_config[i].contains("enable")) return "on";

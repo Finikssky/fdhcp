@@ -7,6 +7,8 @@ Rectangle
     property alias main_view_block: _screenview_main
     signal pressBack();
     signal pressHome();
+    property alias have_back: _screenview_floor_back.visible
+    property alias have_home: _screenview_floor_main.visible
 
     id: _screenview
     anchors.fill: parent
@@ -30,8 +32,6 @@ Rectangle
             anchors.fill: _screenview_main
             sourceComponent: main_entry
         }
-
-        //border: { color: "red"; width: 5;}
     }
 
     Rectangle
@@ -57,10 +57,13 @@ Rectangle
         {
             id: _screenview_floor_back
             height: parent.height
-            width: parent.width / 5
-            color: parent.color
+            width:  height
+            br_image: ""
+            bk_image: "qrc:/images/arrow_down.png"
+            rotation: 90
 
             anchors.left: parent.left
+            anchors.leftMargin: height/5
 
             onButtonClick: pressBack();
         }
@@ -69,16 +72,16 @@ Rectangle
        {
            id: _screenview_floor_errblock
            height: parent.height
-           width: 3 * parent.width / 5
 
-           anchors.horizontalCenter: parent.horizontalCenter
+           anchors.left: _screenview_floor_back.right
+           anchors.right: _screenview_floor_main.left
            anchors.margins: 3
 
            color: parent.color
            textcolor: "yellow"
            wrapMode: Text.WordWrap
 
-           text: "Errors here"
+           text: ""
 
            onTextChanged: clear_error.start();
         }
@@ -87,9 +90,13 @@ Rectangle
         {
             id: _screenview_floor_main
             height: parent.height
-            width: parent.width / 5
-            color: parent.color
+            width: height
+
             anchors.right: parent.right
+            anchors.rightMargin: height/5
+
+            bk_image: "qrc:/images/home.png"
+            br_image: ""
 
             onButtonClick: pressHome()
         }
