@@ -795,12 +795,12 @@ dserver_subnet_t * add_subnet_to_interface ( dserver_interface_t * interface, ch
 	mask ++;
 
 	struct sockaddr_in a_sa, m_sa;
-	if ( ! inet_pton( AF_INET, address, &( a_sa.sin_addr ) ) )
+        if ( 1 > inet_pton( AF_INET, address, &( a_sa.sin_addr ) ) )
 	{
                 if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Invalid subnet address: %s\n", address );
 		return NULL;
 	}
-	if ( ! inet_pton( AF_INET, mask, &( m_sa.sin_addr ) ) )
+        if ( 1 > inet_pton( AF_INET, mask, &( m_sa.sin_addr ) ) )
 	{
                 if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE,  "Invalid subnet mask: %s\n", mask );
 		return NULL;
@@ -860,12 +860,12 @@ dserver_subnet_t * search_subnet ( dserver_interface_t * interface, char * args,
 	}
 
 	struct sockaddr_in a_sa, m_sa;
-	if ( ! inet_pton( AF_INET, address, &( a_sa.sin_addr ) ) )
+        if (  1 > inet_pton( AF_INET, address, &( a_sa.sin_addr ) ) )
 	{
                 if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Incorrect subnet address: %s\n", address );
 		return NULL;
 	}
-	if ( ! inet_pton( AF_INET, mask, &( m_sa.sin_addr ) ) )
+        if ( 1 > inet_pton( AF_INET, mask, &( m_sa.sin_addr ) ) )
 	{
                 if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Incorrect subnet mask: %s\n", mask );
 		return NULL;
@@ -962,8 +962,12 @@ int add_dns_to_subnet ( dserver_subnet_t * subnet, char * address, char * error 
 {
 	if ( address == NULL ) return - 1;
 
-	u_int32_t ip = inet_addr( address );
-	if ( ip == - 1 ) return - 1;
+        u_int32_t ip;
+        if ( 1 > inet_pton( AF_INET, address, &ip ))
+        {
+            if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "DNS-server ip address incorrect\n" );
+            return -1;
+        }
 
 	Q_FOREACH(int *, entry, subnet->dns_servers,
 		if ( ip == *entry )
@@ -983,8 +987,12 @@ int del_dns_from_subnet ( dserver_subnet_t * subnet, char * address, char * erro
 {
 	if ( address == NULL ) return - 1;
 
-	u_int32_t ip = inet_addr( address ); //TODO parsing
-	if ( ip == - 1 ) return - 1;
+        u_int32_t ip;
+        if ( 1 > inet_pton( AF_INET, address, &ip ))
+        {
+            if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "DNS-server ip address incorrect\n" );
+            return -1;
+        }
 
 	Q_FOREACH(int *, entry, subnet->dns_servers, 
 		if ( *entry == ip )
@@ -1004,7 +1012,12 @@ int add_router_to_subnet ( dserver_subnet_t * subnet, char * address, char * err
 {
 	if ( address == NULL ) return - 1;
 
-	u_int32_t ip = inet_addr( address );
+        u_int32_t ip;
+        if ( 1 > inet_pton( AF_INET, address, &ip ))
+        {
+            if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Router ip address incorrect\n" );
+            return -1;
+        }
 	if ( ip == - 1 ) return - 1;
 
 	if ( ( ip & subnet->netmask ) != subnet->address )
@@ -1031,8 +1044,12 @@ int del_router_from_subnet ( dserver_subnet_t * subnet, char * address, char * e
 {
 	if ( address == NULL ) return - 1;
 
-	u_int32_t ip = inet_addr( address ); //TODO parsing
-	if ( ip == - 1 ) return - 1;
+        u_int32_t ip ;
+        if ( 1 > inet_pton( AF_INET, address, &ip ))
+        {
+            if (NULL != error) snprintf( error, DCTP_ERROR_DESC_SIZE, "Router ip address incorrect\n" );
+            return -1;
+        }
 
 	Q_FOREACH(int *, entry, subnet->routers,
 		if ( ip == *entry )

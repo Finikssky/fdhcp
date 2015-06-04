@@ -27,6 +27,19 @@ const char * stringize_DCTP_COMMAND_CODE(DCTP_cmd_code_t in)
             return "add subnet";
         case SR_DEL_SUBNET:
             return "del subnet";
+        case SR_ADD_DNS:
+            return "add dns";
+        case SR_DEL_DNS:
+            return "del dns";
+        case SR_ADD_POOL:
+            return "add range";
+        case SR_DEL_POOL:
+            return "del range";
+        case SR_ADD_ROUTER:
+            return "add router";
+        case SR_DEL_ROUTER:
+            return "del router";
+
         default: break;
     }
 
